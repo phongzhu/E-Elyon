@@ -5,59 +5,83 @@ import AuthCallback from "./pages/AuthCallback";
 import ProfileSetup from "./pages/ProfileSetup";
 import AdminDashboard from "./pages/AdminDashboard";
 import RequireAdmin from "./routes/RequireAdmin";
-import Login from "./pages/Login"; // ✅ new
+import Login from "./pages/Login";
+import Branding from "./pages/Branding";
+import Profile from "./pages/Profile";
+import { BrandingProvider } from "./context/BrandingContext";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* 🌟 Home */}
-        <Route
-          path="/"
-          element={
-            <div style={{ padding: 40, textAlign: "center" }}>
-              <h1>Welcome to E-Elyon</h1>
-              <p>
-                Go to{" "}
-                <a href="/login" className="text-blue-600 underline">
-                  /login
-                </a>{" "}
-                to sign in or{" "}
-                <a href="/admin-signup" className="text-blue-600 underline">
-                  /admin-signup
-                </a>{" "}
-                to register the first admin.
-              </p>
-            </div>
-          }
-        />
+    <BrandingProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* 🌟 Home */}
+          <Route
+            path="/"
+            element={
+              <div style={{ padding: 40, textAlign: "center" }}>
+                <h1>Welcome to E-Elyon</h1>
+                <p>
+                  Go to{" "}
+                  <a href="/login" className="text-blue-600 underline">
+                    /login
+                  </a>{" "}
+                  to sign in or{" "}
+                  <a href="/admin-signup" className="text-blue-600 underline">
+                    /admin-signup
+                  </a>{" "}
+                  to register the first admin.
+                </p>
+              </div>
+            }
+          />
 
-        {/* 🌟 Login page */}
-        <Route path="/login" element={<Login />} />
+          {/* 🌟 Auth Pages */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/admin-signup" element={<AdminSignup />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
-        {/* 🌟 Admin sign-up (first admin only) */}
-        <Route path="/admin-signup" element={<AdminSignup />} />
+          {/* 🌟 Profile Setup */}
+          <Route path="/profile-setup" element={<ProfileSetup />} />
 
-        {/* 🌟 OAuth callback — Supabase redirects here after Google auth */}
-        <Route path="/auth/callback" element={<AuthCallback />} />
+          {/* 🌟 Admin Dashboard */}
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <AdminDashboard />
+              </RequireAdmin>
+            }
+          />
 
-        {/* 🌟 Profile setup — collects required user details */}
-        <Route path="/profile-setup" element={<ProfileSetup />} />
+          {/* 🌟 Branding */}
+          <Route
+            path="/branding"
+            element={
+              <RequireAdmin>
+                <Branding />
+              </RequireAdmin>
+            }
+          />
 
-        {/* 🌟 Protected admin dashboard */}
-        <Route
-          path="/admin"
-          element={
-            <RequireAdmin>
-              <AdminDashboard />
-            </RequireAdmin>
-          }
-        />
+          {/* 🌟 Profile Page */}
+         <Route
+              path="/profile"
+              element={
+                <RequireAdmin>
+                  <Profile />
+                </RequireAdmin>
+              }
+            />
 
-        {/* 🌟 Catch-all: redirect unknown routes to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Optional redirect for uppercase */}
+          <Route path="/Profile" element={<Navigate to="/profile" replace />} />
+
+          {/* 🌟 Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </BrandingProvider>
   );
 }
 
