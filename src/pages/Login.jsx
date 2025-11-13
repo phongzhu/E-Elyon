@@ -25,7 +25,26 @@ export default function Login() {
       });
 
       if (error) throw error;
-      if (!data?.user) throw new Error("Login failed. Please check your credentials.");
+      const authUser = data?.user;
+      if (!authUser) throw new Error("Login failed. Please check your credentials.");
+
+      // 🔹 Fetch corresponding user_id (BIGINT) from your "users" table
+      const { data: userRecord, error: userError } = await supabase
+        .from("users")
+        .select("user_id")
+        .eq("email", form.email.trim())
+        .single();
+
+      if (userError || !userRecord) {
+        console.warn("No matching user record found:", userError?.message);
+      } else {
+        // 🔹 Insert an audit log entry via RPC
+        await supabase.rpc("record_user_action", {
+          p_user_id: userRecord.user_id,
+          p_action: "LOGIN",
+          p_description: "User logged in successfully",
+        });
+      }
 
       setMsg("✅ Login successful! Redirecting...");
       setTimeout(() => navigate("/admin"), 1500);
@@ -60,7 +79,10 @@ export default function Login() {
         Log in to access your admin dashboard.
       </p>
 
-      <form onSubmit={handleLogin} className="bg-gray-50 p-6 rounded-xl shadow-sm grid gap-4">
+      <form
+        onSubmit={handleLogin}
+        className="bg-gray-50 p-6 rounded-xl shadow-sm grid gap-4"
+      >
         <div>
           <label>Email Address</label>
           <input

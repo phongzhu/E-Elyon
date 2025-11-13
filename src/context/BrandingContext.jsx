@@ -11,9 +11,6 @@ export const BrandingProvider = ({ children }) => {
   useEffect(() => {
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
         const { data, error } = await supabase
           .from("ui_settings")
           .select("*")
@@ -31,12 +28,12 @@ export const BrandingProvider = ({ children }) => {
     })();
   }, []);
 
-  // Apply branding as global CSS variables
+  // Apply to global CSS vars
   useEffect(() => {
     if (branding) {
       const root = document.documentElement;
-      root.style.setProperty("--primary-color", branding.primary_color || "#003004ff");
-      root.style.setProperty("--secondary-color", branding.secondary_color || "#aed6b5ff");
+      root.style.setProperty("--primary-color", branding.primary_color || "#0B6516");
+      root.style.setProperty("--secondary-color", branding.secondary_color || "#9C0808");
       root.style.setProperty("--tertiary-color", branding.tertiary_color || "#16A34A");
       root.style.setProperty("--primary-text", branding.primary_text_color || "#000");
       root.style.setProperty("--secondary-text", branding.secondary_text_color || "#555");

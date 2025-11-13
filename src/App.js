@@ -8,6 +8,7 @@ import RequireAdmin from "./routes/RequireAdmin";
 import Login from "./pages/Login";
 import Branding from "./pages/Branding";
 import Profile from "./pages/Profile";
+import AuditLog from "./pages/AuditLog"; 
 import { BrandingProvider } from "./context/BrandingContext";
 
 function App() {
@@ -64,6 +65,14 @@ function App() {
             }
           />
 
+        <Route
+            path="/audit_log"
+            element={
+              <RequireAdmin>
+                <AuditLog />
+              </RequireAdmin>
+            }
+          />
           {/* 🌟 Profile Page */}
          <Route
               path="/profile"
