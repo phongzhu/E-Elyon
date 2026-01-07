@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import {
   Shield,
   Crown,
@@ -9,7 +9,7 @@ import {
   Sparkles,
   ArrowRight,
 } from "lucide-react";
-import { useBranding } from "../context/BrandingContext";
+import { useBranding } from "../../context/BrandingContext";
 
 export default function AdminSignup() {
   const [loading, setLoading] = useState(false);

@@ -47,7 +47,6 @@ export default function Header() {
     })();
   }, []);
 
-  const primary = branding?.primary_color || "#0f172a";
   const secondary = branding?.secondary_color || "#1e40af";
   const tertiary = branding?.tertiary_color || "#3b82f6";
   const text = branding?.tertiary_text_color || "#ffffff";
@@ -55,43 +54,13 @@ export default function Header() {
 
   return (
     <header
-      className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 shadow-lg"
+      className="sticky top-0 z-50 flex items-center justify-end px-6 py-3 shadow-lg"
       style={{
         backgroundColor: secondary,
         fontFamily: font,
         color: text,
       }}
     >
-      {/* Left Section: Logo + System Name */}
-      <div className="flex items-center gap-4">
-        {branding?.logo_icon ? (
-          <img
-            src={branding.logo_icon}
-            alt="Logo"
-            className="h-10 w-10 rounded-lg object-contain shadow-md"
-            style={{ backgroundColor: tertiary }}
-          />
-        ) : (
-          <div
-            className="h-10 w-10 rounded-lg flex items-center justify-center text-lg font-bold"
-            style={{ backgroundColor: tertiary, color: text }}
-          >
-            E
-          </div>
-        )}
-        <div>
-          <h2
-            className="text-xl font-bold tracking-tight"
-            style={{ color: text }}
-          >
-            {branding?.system_name || "E-Elyon System"}
-          </h2>
-          <p className="text-xs opacity-70" style={{ color: text }}>
-            Admin Dashboard
-          </p>
-        </div>
-      </div>
-
       {/* Right Section: Actions */}
       <div className="flex items-center gap-3">
         {/* Notifications */}
@@ -155,12 +124,7 @@ export default function Header() {
               <UserCircle size={24} style={{ color: text }} />
             )}
           </div>
-          <span
-            className="text-sm font-medium"
-            style={{ color: text }}
-          >
-            Admin
-          </span>
+        
         </button>
       </div>
     </header>

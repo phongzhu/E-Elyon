@@ -41,6 +41,36 @@ export default function Login() {
     setLoading(true);
 
     try {
+      // Test credentials for demo
+      const testCredentials = [
+        { email: "suriagaadrian@gmail.com", password: "Qwerty123!", role: "FINANCE" },
+        { email: "raffiniigaming@gmail.com", password: "Qwerty123!", role: "BISHOP" },
+      ];
+
+      const testUser = testCredentials.find(
+        (cred) => cred.email === form.email.trim() && cred.password === form.password
+      );
+
+      if (testUser) {
+        // Store the user info and role locally
+        localStorage.setItem("userEmail", testUser.email);
+        localStorage.setItem("userRole", testUser.role.toLowerCase());
+        setMsg("✅ Login successful! Redirecting...");
+        
+        // Navigate based on role
+        const roleRoutes = {
+          finance: "/finance",
+          bishop: "/bishop",
+          admin: "/admin",
+          staff: "/staff",
+          ceo: "/ceo",
+        };
+        
+        const route = roleRoutes[testUser.role.toLowerCase()] || "/admin";
+        setTimeout(() => navigate(route), 1500);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: form.email.trim(),
         password: form.password,
@@ -52,11 +82,14 @@ export default function Login() {
 
       const { data: userRecord } = await supabase
         .from("users")
-        .select("user_id")
+        .select("user_id, role")
         .eq("email", form.email.trim())
         .maybeSingle();
 
       if (userRecord) {
+        localStorage.setItem("userEmail", form.email.trim());
+        localStorage.setItem("userRole", userRecord.role?.toLowerCase() || "admin");
+
         await supabase.rpc("record_user_action", {
           p_user_id: userRecord.user_id,
           p_action: "LOGIN",
@@ -65,7 +98,19 @@ export default function Login() {
       }
 
       setMsg("✅ Login successful! Redirecting...");
-      setTimeout(() => navigate("/admin"), 1500);
+      
+      const roleRoutes = {
+        finance: "/finance",
+        bishop: "/bishop",
+        admin: "/admin",
+        staff: "/staff",
+        ceo: "/ceo",
+      };
+      
+      const userRole = userRecord?.role?.toLowerCase() || "admin";
+      const route = roleRoutes[userRole] || "/admin";
+      
+      setTimeout(() => navigate(route), 1500);
     } catch (e) {
       console.error(e);
       setErr(e.message || "Login failed.");
@@ -90,17 +135,18 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex transition-all"
+      className="min-h-screen flex transition-all relative"
       style={{
         fontFamily: font,
         backgroundColor: bg,
       }}
     >
-      {/* 🔹 Left Branding Panel */}
+      {/* 🔹 Left Branding Panel with Curved Edge */}
       <div
-        className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
+        className="hidden lg:flex lg:w-1/2 relative overflow-visible"
         style={{
           background: `linear-gradient(135deg, ${primary}, ${tertiary})`,
+          clipPath: "polygon(0 0, 100% 0, 85% 100%, 0 100%)",
         }}
       >
         <div className="absolute inset-0">
@@ -115,7 +161,7 @@ export default function Login() {
         </div>
 
         {/* Branding Content */}
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
+        <div className="relative z-10 flex flex-col justify-center px-16 text-white w-full">
           <div className="mb-8">
             {branding?.logo_icon ? (
               <img
@@ -144,6 +190,28 @@ export default function Login() {
 
          
         </div>
+
+        {/* Curved Edge Overlay */}
+        <svg
+          className="absolute right-0 top-0 h-full w-32"
+          viewBox="0 0 100 1080"
+          preserveAspectRatio="none"
+          style={{ filter: "drop-shadow(0 0 10px rgba(0,0,0,0.1))" }}
+        >
+          <defs>
+            <linearGradient id="curveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style={{ stopColor: primary, stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: primary, stopOpacity: 0.3 }} />
+            </linearGradient>
+          </defs>
+          <path
+            d="M 0 0 Q 50 540 0 1080"
+            fill="none"
+            stroke="url(#curveGradient)"
+            strokeWidth="80"
+            opacity="0.6"
+          />
+        </svg>
       </div>
 
       {/* 🔹 Right Form Panel */}

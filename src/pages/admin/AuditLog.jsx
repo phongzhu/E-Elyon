@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import { FileText, RefreshCcw } from "lucide-react";
-import Sidebar from "../components/Sidebar";
-import Header from "../components/Header";
-import { useBranding } from "../context/BrandingContext";
+import Sidebar from "../../components/Sidebar";
+import Header from "../../components/Header";
+import { useBranding } from "../../context/BrandingContext";
 
 export default function AuditLog() {
   const [logs, setLogs] = useState([]);
@@ -97,8 +97,8 @@ export default function AuditLog() {
             </select>
           </div>
 
-          {/* 🔹 Logs Table */}
-          <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+          {/* 🔹 Logs Table (constrained height to avoid sidebar resize) */}
+          <div className="bg-white shadow-md rounded-lg border border-gray-200 max-h-[60vh] overflow-y-auto">
             <table className="w-full text-sm text-left border-collapse">
               <thead className="bg-gray-100 border-b text-gray-700 uppercase text-xs">
                 <tr>
@@ -147,8 +147,7 @@ export default function AuditLog() {
                             : log.action === "SIGNUP"
                             ? "text-blue-600"
                             : "text-gray-700"
-                        }`}
-                      >
+                        }`}>
                         {log.action}
                       </td>
                       <td className="px-4 py-2 text-gray-600">

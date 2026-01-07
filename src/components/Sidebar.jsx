@@ -4,10 +4,19 @@ import {
   LogOut,
   X,
   ChevronRight,
-  Brush,
   Database,
   FileText,
   UserCircle,
+  DollarSign,
+  ClipboardList,
+  Users,
+  Settings,
+  UserCog,
+  Users2,
+  Calendar,
+  Briefcase,
+  MessageSquare,
+  PieChart,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -54,18 +63,65 @@ export default function Sidebar() {
   const text = branding?.tertiary_text_color || "#ffffff";
   const font = branding?.font_family || "Inter";
 
-  const menuItems = [
-    { label: "Dashboard", icon: Home, to: "/admin" },
-    { label: "Customize Branding", icon: Brush, to: "/branding" },
-    { label: "Audit Logs", icon: FileText, to: "/audit_log" },
-    { label: "Database Settings", icon: Database, to: "/database" },
-  ];
+  // Menu config per role (uses exact spec with JSX icons)
+  const menuConfig = {
+    admin: [
+      { path: "/admin/dashboard", name: "Home", icon: <Home size={20} /> },
+      { path: "/admin/users", name: "User and Role Management", icon: <Users size={20} /> },
+      { path: "/admin/backup", name: "Database Settings", icon: <Database size={20} /> },
+      { path: "/admin/audit", name: "Audit Trail", icon: <FileText size={20} /> },
+      { path: "/branding", name: "System Configuration", icon: <Settings size={20} /> },
+    ],
+    bishop: [
+      { path: "/bishop/dashboard", name: "Home", icon: <Home size={20} /> },
+      { path: "/bishop/roles", name: "User and Role Management", icon: <UserCog size={20} /> },
+      { path: "/bishop/membership", name: "Attendance and Membership", icon: <Users2 size={20} /> },
+      { path: "/bishop/events", name: "Activity and Events", icon: <Calendar size={20} /> },
+      { path: "/bishop/finance", name: "Finance Oversight", icon: <DollarSign size={20} /> },
+      { path: "/bishop/analytics", name: "Reports and Analytics", icon: <PieChart size={20} /> },
+      { path: "/bishop/counseling", name: "Counseling/Prayer Request", icon: <MessageSquare size={20} /> },
+    ],
+    finance: [
+      { path: "/finance/dashboard", name: "Home", icon: <Home size={20} /> },
+      { path: "/finance/funds", name: "Church Fund Management", icon: <Database size={20} /> },
+      { path: "/finance/stipends", name: "Church Stipends", icon: <DollarSign size={20} /> },
+      { path: "/finance/tasks", name: "Assignment Control", icon: <ClipboardList size={20} /> },
+      { path: "/finance/reports", name: "Reports and Analytics", icon: <PieChart size={20} /> },
+    ],
+    staff: [
+      { path: "/staff/dashboard", name: "Home", icon: <Home size={20} /> },
+      { path: "/staff/tasks", name: "My Tasks", icon: <FileText size={20} /> },
+    ],
+    ceo: [
+      { path: "/ceo", name: "Home", icon: <Home size={20} /> },
+    ],
+  };
 
+  // Resolve items for current role
+  const getMenuItems = () => {
+    const role = (localStorage.getItem("userRole") || "admin").toLowerCase();
+    return menuConfig[role] || menuConfig.admin;
+  };
+
+  const getRoleName = () => {
+    const userRole = localStorage.getItem("userRole") || "admin";
+    const roleNames = {
+      admin: "Admin",
+      bishop: "Bishop",
+      finance: "Finance",
+      staff: "Staff",
+      ceo: "CEO",
+    };
+    return roleNames[userRole] || "Admin";
+  };
+
+  const menuItems = getMenuItems();
+  const roleName = getRoleName();
   return (
     <aside
       className={`${
         collapsed ? "w-20" : "w-72"
-      } min-h-screen flex flex-col transition-all duration-300 shadow-2xl relative`}
+      } h-screen flex flex-col transition-all duration-300 shadow-2xl relative sticky top-0`}
       style={{
         backgroundColor: primary,
         color: text,
@@ -102,7 +158,7 @@ export default function Sidebar() {
                 E
               </div>
             )}
-            <h3 className="font-bold text-lg">Admin Panel</h3>
+            <h3 className="font-bold text-lg">{roleName} Panel</h3>
             <p className="text-xs opacity-70 mt-1">Manage your system</p>
           </div>
         ) : (
@@ -118,16 +174,17 @@ export default function Sidebar() {
         )}
       </div>
 
+
+      
       {/* Menu */}
       <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.to;
+          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path);
 
           return (
             <button
-              key={item.label}
-              onClick={() => navigate(item.to)}
+              key={item.path}
+              onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all duration-200 group ${
                 isActive ? "shadow-lg scale-[1.02]" : "hover:scale-[1.02] hover:bg-white/5"
               }`}
@@ -135,23 +192,21 @@ export default function Sidebar() {
                 backgroundColor: isActive ? secondary : "transparent",
               }}
             >
-              <div
-                className={`transition-transform ${
-                  isActive ? "scale-110" : "group-hover:scale-110"
-                }`}
-              >
-                <Icon size={20} />
-              </div>
+              <div className={`transition-transform ${isActive ? "scale-110" : "group-hover:scale-110"}`}>{item.icon}</div>
 
               {!collapsed && (
                 <span className={isActive ? "font-semibold" : ""}>
-                  {item.label}
+                  {item.name}
                 </span>
               )}
             </button>
           );
         })}
+
+        
       </nav>
+
+     
 
       {/* Footer */}
       <div className="p-4 border-t border-white/10">
@@ -164,8 +219,8 @@ export default function Sidebar() {
               <UserCircle size={24} />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold">Admin User</p>
-              <p className="text-xs opacity-70">admin@example.com</p>
+              <p className="text-sm font-semibold">{roleName} User</p>
+              <p className="text-xs opacity-70">{localStorage.getItem("userEmail") || "user@example.com"}</p>
             </div>
           </div>
         )}

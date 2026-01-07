@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabaseClient";
-import Sidebar from "../components/Sidebar";
-import Header from "../components/Header";
+import { supabase } from "../../lib/supabaseClient";
+import Sidebar from "../../components/Sidebar";
+import Header from "../../components/Header";
 import { Upload, Check, X, Eye, Palette, Type, Image } from "lucide-react";
 
 export default function Branding() {
@@ -28,6 +28,7 @@ export default function Branding() {
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("colors");
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [colorPreview, setColorPreview] = useState({});
 
   // ✅ Load logged-in user (for updated_by)
   useEffect(() => {
@@ -143,8 +144,8 @@ export default function Branding() {
         <input
           type="color"
           name={name}
-          value={value}
-          onChange={handleChange}
+          value={colorPreview[name] || value}
+          onChange={(e) => setColorPreview({ ...colorPreview, [name]: e.target.value })}
           className="absolute opacity-0 w-0 h-0"
           id={name}
         />
@@ -157,13 +158,38 @@ export default function Branding() {
         >
           <div
             className="w-12 h-12 rounded-lg shadow-inner border-2 border-white"
-            style={{ backgroundColor: value }}
+            style={{ backgroundColor: colorPreview[name] || value }}
           />
           <div className="flex-1">
             <div className="text-xs text-gray-500 uppercase tracking-wide">{label}</div>
-            <div className="font-mono text-sm font-semibold text-gray-800">{value}</div>
+            <div className="font-mono text-sm font-semibold text-gray-800">
+              {colorPreview[name] || value}
+            </div>
           </div>
         </label>
+        {colorPreview[name] && colorPreview[name] !== value && (
+          <div className="flex gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setForm({ ...form, [name]: colorPreview[name] });
+                setColorPreview({ ...colorPreview, [name]: null });
+              }}
+              className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
+            >
+              <Check className="w-4 h-4" />
+              Apply
+            </button>
+            <button
+              type="button"
+              onClick={() => setColorPreview({ ...colorPreview, [name]: null })}
+              className="flex-1 px-3 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors flex items-center justify-center gap-1"
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

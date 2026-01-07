@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import {
   Pencil,
@@ -13,9 +13,9 @@ import {
   Shield,
   Camera,
 } from "lucide-react";
-import { useBranding } from "../context/BrandingContext";
-import Sidebar from "../components/Sidebar";
-import Header from "../components/Header";
+import { useBranding } from "../../context/BrandingContext";
+import Sidebar from "../../components/Sidebar";
+import Header from "../../components/Header";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
