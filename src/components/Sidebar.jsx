@@ -77,6 +77,7 @@ export default function Sidebar() {
       { path: "/bishop/roles", name: "User and Role Management", icon: <UserCog size={20} /> },
       { path: "/bishop/membership", name: "Attendance and Membership", icon: <Users2 size={20} /> },
       { path: "/bishop/events", name: "Activity and Events", icon: <Calendar size={20} /> },
+      { path: "/bishop/ministries", name: "Manage Ministries", icon: <Briefcase size={20} /> },
       { path: "/bishop/finance", name: "Finance Oversight", icon: <DollarSign size={20} /> },
       { path: "/bishop/analytics", name: "Reports and Analytics", icon: <PieChart size={20} /> },
       { path: "/bishop/counseling", name: "Counseling/Prayer Request", icon: <MessageSquare size={20} /> },
