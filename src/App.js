@@ -7,6 +7,8 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AccountManagement from "./pages/admin/AccountManagement";
 import RequireAdmin from "./routes/RequireAdmin";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Branding from "./pages/admin/Branding";
 import Profile from "./pages/admin/Profile";
 import AuditLog from "./pages/admin/AuditLog";
@@ -28,6 +30,14 @@ import StaffDashboard from "./pages/staff/StaffDashboard";
 import StaffTasks from "./pages/staff/Tasks";
 import CEODashboard from "./pages/ceo/CEODashboard";
 import { BrandingProvider } from "./context/BrandingContext";
+import PastorDashboard from "./pages/pastor/PastorDashboard";
+import Membership from "./pages/pastor/Membership";
+import Events from "./pages/pastor/Events";
+import Finance from "./pages/pastor/Finance";
+import Tasks from "./pages/pastor/Tasks";
+import Counseling from "./pages/pastor/Counseling";
+import UserManagement from "./pages/pastor/UserManagement";
+import RequirePastor from "./routes/requirePastor";
 
 function App() {
   return (
@@ -39,6 +49,8 @@ function App() {
 
           {/* 🌟 Auth Pages */}
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin-signup" element={<AdminSignup />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
 
@@ -147,6 +159,7 @@ function App() {
             }
           />
 
+
           {/* 🌟 Role-Based Dashboards */}
           {/* Bishop */}
           <Route path="/bishop" element={<BishopDashboard />} />
@@ -158,6 +171,16 @@ function App() {
           <Route path="/bishop/tasks" element={<BishopTasks />} />
           <Route path="/bishop/analytics" element={<BishopAnalytics />} />
           <Route path="/bishop/counseling" element={<BishopCounseling />} />
+
+          {/* Pastor */}
+          <Route path="/pastor" element={<RequirePastor><PastorDashboard /></RequirePastor>} />
+          <Route path="/pastor/dashboard" element={<RequirePastor><PastorDashboard /></RequirePastor>} />
+          <Route path="/pastor/membership" element={<RequirePastor><Membership /></RequirePastor>} />
+          <Route path="/pastor/events" element={<RequirePastor><Events /></RequirePastor>} />
+          <Route path="/pastor/finance" element={<RequirePastor><Finance /></RequirePastor>} />
+          <Route path="/pastor/tasks" element={<RequirePastor><Tasks /></RequirePastor>} />
+          <Route path="/pastor/counseling" element={<RequirePastor><Counseling /></RequirePastor>} />
+          <Route path="/pastor/user-management" element={<RequirePastor><UserManagement /></RequirePastor>} />
 
           {/* Finance */}
           <Route path="/finance" element={<FinanceDashboard />} />

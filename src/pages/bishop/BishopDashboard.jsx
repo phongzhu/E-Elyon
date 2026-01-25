@@ -131,8 +131,9 @@ export default function BishopDashboard() {
       <div className="flex flex-col flex-1">
         <Header />
 
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-7xl mx-auto space-y-6">
+       <main className="flex-1 p-6 overflow-y-auto">
+  <div className="w-full space-y-6">
+
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>

@@ -81,6 +81,15 @@ export default function Sidebar() {
       { path: "/bishop/analytics", name: "Reports and Analytics", icon: <PieChart size={20} /> },
       { path: "/bishop/counseling", name: "Counseling/Prayer Request", icon: <MessageSquare size={20} /> },
     ],
+    pastor: [
+      { path: "/pastor/dashboard", name: "Home", icon: <Home size={20} /> },
+      { path: "/pastor/membership", name: "Attendance and Membership", icon: <Users2 size={20} /> },
+      { path: "/pastor/events", name: "Activity and Events", icon: <Calendar size={20} /> },
+      { path: "/pastor/finance", name: "Finance Overview", icon: <DollarSign size={20} /> },
+      { path: "/pastor/tasks", name: "My Tasks", icon: <ClipboardList size={20} /> },
+      { path: "/pastor/user-management", name: "User Management", icon: <UserCog size={20} /> },
+      { path: "/pastor/counseling", name: "Counseling/Prayer Request", icon: <MessageSquare size={20} /> },
+    ],
     finance: [
       { path: "/finance/dashboard", name: "Home", icon: <Home size={20} /> },
       { path: "/finance/funds", name: "Church Fund Management", icon: <Database size={20} /> },
@@ -108,6 +117,7 @@ export default function Sidebar() {
     const roleNames = {
       admin: "Admin",
       bishop: "Bishop",
+      pastor: "Pastor",
       finance: "Finance",
       staff: "Staff",
       ceo: "CEO",

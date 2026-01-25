@@ -1,0 +1,13 @@
+{
+  "name": "eecm-mailer",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "nodemailer": "^7.0.12"
+  }
+}

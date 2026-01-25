@@ -127,11 +127,12 @@ export default function BishopFinance() {
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header />
-        <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Finance Oversight</h1>
-            <p className="text-gray-600">Manage all financial transactions and reporting</p>
-          </div>
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+          <div className="w-full space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Finance Oversight</h1>
+              <p className="text-gray-600">Manage all financial transactions and reporting</p>
+            </div>
           {/* Tab Navigation */}
           <div className="flex gap-6 border-b border-gray-200 mb-4">
             <button onClick={() => setActiveTab("overview")} className={`py-2 px-2 text-sm font-medium transition-colors ${activeTab === "overview" ? "border-b-2 border-green-600 text-green-700" : "text-gray-500 hover:text-gray-700"}`}>Overview</button>
@@ -212,6 +213,7 @@ export default function BishopFinance() {
               </div>
             </div>
           )}
+          </div>
         </main>
       </div>
     </div>

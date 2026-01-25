@@ -2,191 +2,571 @@ import React, { useEffect, useMemo, useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import { supabase } from "../../lib/supabaseClient";
-import { ShieldCheck, Ban, ScrollText, Eye, CheckCircle2, Info } from "lucide-react";
-import { BRANCHES } from "../../lib/financeUtils";
+import { Eye, CheckCircle2, Info, X } from "lucide-react";
 
 export default function BishopUserRoles() {
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [filterRole, setFilterRole] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [showLogs, setShowLogs] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const [drawerUser, setDrawerUser] = useState(null);
-  const [modal, setModal] = useState({ open: false, userId: null, targetRole: null, action: null, reason: "" });
-  const [bulkSelection, setBulkSelection] = useState([]);
-  const [pastorTab, setPastorTab] = useState("assign");
-  const [pastorAssignments, setPastorAssignments] = useState([]);
-  const [mainTab, setMainTab] = useState("assignments");
-  const [members, setMembers] = useState([]);
-  const [memberFilter, setMemberFilter] = useState({ branch: "", status: "" });
 
+  // Main tabs
+  const [mainTab, setMainTab] = useState("add-user"); // add-user | pastors | members
+
+  // =========================
+  // Helpers
+  // =========================
+  const stripMemberSuffixEmail = (email = "") => {
+    if (!email) return "";
+    return String(email).replace(/_member(?=@)/gi, "").replace(/_member$/gi, "").trim();
+  };
+
+  const fmtDateOnly = (val) => {
+    if (!val) return "-";
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
+  };
+
+  const fmtDateTime = (val) => {
+    if (!val) return "-";
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? "-" : d.toLocaleString();
+  };
+
+  const safeFullName = (d) =>
+    [d?.first_name, d?.middle_name, d?.last_name, d?.suffix].filter(Boolean).join(" ").trim();
+
+  const PROFILE_BUCKET = "profiles"; // change if different bucket
+  const getPublicImageUrl = (photo_path) => {
+    if (!photo_path) return null;
+    if (/^https?:\/\//i.test(photo_path)) return photo_path;
+    const { data } = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(photo_path);
+    return data?.publicUrl || null;
+  };
+
+  const DEFAULT_PROFILE_IMG =
+    "https://ui-avatars.com/api/?name=User&background=e5e7eb&color=111827&rounded=true&size=80";
+
+  // =========================
+  // Branches from DB
+  // =========================
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branches, setBranches] = useState([]); // [{branch_id, name}]
+
+  const fetchBranches = async () => {
+    try {
+      setBranchesLoading(true);
+      const { data, error } = await supabase
+        .from("branches")
+        .select("branch_id, name")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (e) {
+      console.error(e);
+      setBranches([]);
+      setErr((prev) => prev || e?.message || "Failed to load branches.");
+    } finally {
+      setBranchesLoading(false);
+    }
+  };
+
+  const branchNameById = useMemo(() => {
+    const m = new Map();
+    (branches || []).forEach((b) => m.set(String(b.branch_id), b.name));
+    return m;
+  }, [branches]);
+
+  // =========================
+  // ADD USER
+  // =========================
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [eligibleMembers, setEligibleMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState(null);
+
+  // ✅ bishop can choose (and update) branch via users_details.branch_id when role is PASTOR
+  const [createForm, setCreateForm] = useState({
+    role: "STAFF",
+    access_start: "",
+    access_end: "",
+    designated_branch_id: "", // branch_id (users_details)
+  });
+
+  const [creatingUser, setCreatingUser] = useState(false);
+
+  // =========================
+  // PASTORS TAB
+  // =========================
+  const [pastorsLoading, setPastorsLoading] = useState(false);
+  const [pastors, setPastors] = useState([]); // users.role=PASTOR joined user_details + branch
+
+  // =========================
+  // MEMBERS TAB (role = member)
+  // =========================
+  const [membersTabLoading, setMembersTabLoading] = useState(false);
+  const [memberUsers, setMemberUsers] = useState([]);
+  const [memberFilter, setMemberFilter] = useState({ branch: "", status: "" });
+  const [drawerUser, setDrawerUser] = useState(null);
+
+  // Upgrade baptismal date modal
+  const [baptismModal, setBaptismModal] = useState({
+    open: false,
+    user_details_id: null,
+    full_name: "",
+    baptismal_date: "",
+  });
+  const [baptismSaving, setBaptismSaving] = useState(false);
+
+  // Confirmation
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState("Saved!");
+
+  // =========================
+  // Fetch: eligible baptized members
+  // =========================
+  const fetchEligibleMembers = async () => {
+    try {
+      setMembersLoading(true);
+      setErr("");
+
+      const { data, error } = await supabase
+        .from("users_details")
+        .select(
+          `
+          user_details_id,
+          branch_id,
+          photo_path,
+          first_name,
+          middle_name,
+          last_name,
+          suffix,
+          contact_number,
+          baptismal_date,
+          branch:branches ( branch_id, name ),
+          accounts:users (
+            user_id,
+            auth_user_id,
+            email,
+            role,
+            is_active,
+            access_start,
+            access_end,
+            created_at
+          )
+        `
+        )
+        .not("baptismal_date", "is", null)
+        .order("last_name", { ascending: true });
+
+      if (error) throw error;
+
+      const mapped = (data || []).map((m) => {
+        const accounts = m.accounts || [];
+        const preferred =
+          accounts.find((a) => /_member(?=@)/i.test(a.email) || /_member$/i.test(a.email)) || accounts[0];
+
+        return {
+          ...m,
+          accounts,
+          photo_url: m.photo_path ? getPublicImageUrl(m.photo_path) : null,
+          branch_name: m.branch?.name || "-",
+          full_name: safeFullName(m),
+          display_member_email: stripMemberSuffixEmail(preferred?.email || ""),
+          preferred_auth_user_id: preferred?.auth_user_id || null, // internal only
+          has_accounts_count: accounts.length,
+        };
+      });
+
+      setEligibleMembers(mapped);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Failed to load baptized members.");
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  // =========================
+  // Update users_details.branch_id (for selected member / for pastor assignment)
+  // =========================
+  const updateUserDetailsBranch = async (userDetailsId, branchId) => {
+    if (!userDetailsId) return;
+
+    const normalized = branchId ? Number(branchId) : null;
+
+    const { error } = await supabase
+      .from("users_details")
+      .update({ branch_id: normalized })
+      .eq("user_details_id", userDetailsId);
+
+    if (error) throw error;
+  };
+
+  // =========================
+  // Create account in public.users
+  // ✅ inserts auth_user_id but NEVER shows it to bishop
+  // ✅ if role === PASTOR => ensure branch_id is set on users_details
+  // =========================
+  const handleCreateAccountForMember = async () => {
+    try {
+      setErr("");
+
+      if (!selectedMember) return setErr("Please select a member first.");
+      if (!createForm.access_start || !createForm.access_end) {
+        return setErr("Please provide both access start and end dates.");
+      }
+
+      const baseEmail = stripMemberSuffixEmail(selectedMember.display_member_email);
+      if (!baseEmail) return setErr("Selected member has no email.");
+
+      if (!selectedMember.preferred_auth_user_id) {
+        return setErr("Selected member has no linked Auth account. (auth_user_id missing)");
+      }
+
+      // ✅ require designated branch only for pastor
+      if (createForm.role === "PASTOR" && !createForm.designated_branch_id) {
+        return setErr("Please select the designated branch for the Pastor.");
+      }
+
+      setCreatingUser(true);
+
+      // 1) If PASTOR: update users_details.branch_id first (this is the "assignment")
+      if (createForm.role === "PASTOR") {
+        await updateUserDetailsBranch(selectedMember.user_details_id, createForm.designated_branch_id);
+      }
+
+      // 2) Insert into users (auth_user_id hidden)
+      const { error: insErr } = await supabase.from("users").insert({
+        user_details_id: selectedMember.user_details_id,
+        auth_user_id: selectedMember.preferred_auth_user_id,
+        email: baseEmail,
+        role: createForm.role,
+        access_start: new Date(createForm.access_start).toISOString(),
+        access_end: new Date(createForm.access_end).toISOString(),
+        is_active: true,
+      });
+
+      if (insErr) throw insErr;
+
+      // 3) Notify via mailer endpoint
+      let mailOk = false;
+      let mailError = "";
+      try {
+        const res = await fetch(`${process.env.REACT_APP_MAILER_URL}/send-account-created`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            toEmail: baseEmail,
+            roleName: createForm.role,
+            branchName: selectedMember.branch_name,
+            memberName: selectedMember.full_name,
+          }),
+        });
+        const mailData = await res.json();
+        mailOk = mailData?.ok === true;
+        mailError = mailData?.error || "";
+      } catch (err) {
+        mailError = err?.message || "Failed to send email.";
+      }
+
+      if (!mailOk) {
+        setErr(`Account created, but email failed to send. ${mailError}`);
+      }
+
+      setSelectedMember(null);
+      setCreateForm({ role: "STAFF", access_start: "", access_end: "", designated_branch_id: "" });
+
+      setConfirmMsg(createForm.role === "PASTOR" ? "Pastor created and assigned to branch!" : "User account created!");
+      setShowConfirm(true);
+
+      await fetchEligibleMembers();
+      if (createForm.role === "PASTOR") await fetchPastors();
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Failed to create user account.");
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const filteredEligibleMembers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return eligibleMembers;
+    return eligibleMembers.filter((m) => {
+      const name = (m.full_name || "").toLowerCase();
+      const email = (m.display_member_email || "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }, [eligibleMembers, searchTerm]);
+
+  // =========================
+  // Fetch: Pastors (assignment is users_details.branch_id)
+  // =========================
+  const fetchPastors = async () => {
+    try {
+      setPastorsLoading(true);
+      setErr("");
+
+      const { data, error } = await supabase
+        .from("users")
+        .select(
+          `
+          user_id,
+          email,
+          role,
+          is_active,
+          created_at,
+          user_details:users_details (
+            user_details_id,
+            branch_id,
+            first_name,
+            middle_name,
+            last_name,
+            suffix,
+            photo_path,
+            branch:branches ( branch_id, name )
+          )
+        `
+        )
+        .eq("role", "PASTOR")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const mapped = (data || []).map((u) => {
+        const d = u.user_details || null;
+        return {
+          ...u,
+          user_details_id: d?.user_details_id || null,
+          details_branch_id: d?.branch_id || null,
+          full_name: safeFullName(d) || "-",
+          photo_url: d?.photo_path ? getPublicImageUrl(d.photo_path) : null,
+          branch_name: d?.branch?.name || "Unassigned",
+          display_email: stripMemberSuffixEmail(u.email),
+        };
+      });
+
+      setPastors(mapped);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Failed to load pastors.");
+    } finally {
+      setPastorsLoading(false);
+    }
+  };
+
+  // Change pastor branch => update users_details.branch_id
+  const assignPastorToBranch = async (pastorUserDetailsId, branchId) => {
+    try {
+      setErr("");
+
+      // optimistic UI
+      setPastors((prev) =>
+        prev.map((p) =>
+          String(p.user_details_id) === String(pastorUserDetailsId)
+            ? {
+                ...p,
+                details_branch_id: branchId ? Number(branchId) : null,
+                branch_name: branchId ? branchNameById.get(String(branchId)) || "Unassigned" : "Unassigned",
+              }
+            : p
+        )
+      );
+
+      await updateUserDetailsBranch(pastorUserDetailsId, branchId);
+
+      setConfirmMsg("Pastor branch updated!");
+      setShowConfirm(true);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Failed to update pastor branch.");
+      await fetchPastors();
+    }
+  };
+
+  // =========================
+  // Fetch: Members (role = member)
+  // =========================
+  const fetchMemberRoleUsers = async () => {
+    try {
+      setMembersTabLoading(true);
+      setErr("");
+
+      const { data, error } = await supabase
+        .from("users")
+        .select(
+          `
+          user_id,
+          email,
+          role,
+          is_active,
+          created_at,
+          user_details:users_details (
+            user_details_id,
+            branch_id,
+            photo_path,
+            first_name,
+            middle_name,
+            last_name,
+            suffix,
+            contact_number,
+            baptismal_date,
+            last_attended,
+            branch:branches ( branch_id, name )
+          )
+        `
+        )
+        .eq("role", "member") // ✅ your requirement
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const mapped = (data || []).map((u) => {
+        const d = u.user_details || null;
+        return {
+          ...u,
+          full_name: safeFullName(d) || "-",
+          photo_url: d?.photo_path ? getPublicImageUrl(d.photo_path) : null,
+          branch_name: d?.branch?.name || "-",
+          user_details_id: d?.user_details_id || null,
+          contact_number: d?.contact_number || null,
+          baptismal_date: d?.baptismal_date || null,
+          last_attended: d?.last_attended || null,
+        };
+      });
+
+      setMemberUsers(mapped);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Failed to load member users.");
+    } finally {
+      setMembersTabLoading(false);
+    }
+  };
+
+  const filteredMemberUsers = useMemo(() => {
+    return memberUsers.filter((u) => {
+      if (memberFilter.branch && u.branch_name !== memberFilter.branch) return false;
+      if (memberFilter.status) {
+        if (memberFilter.status === "Active" && !u.is_active) return false;
+        if (memberFilter.status === "Inactive" && u.is_active) return false;
+      }
+      return true;
+    });
+  }, [memberUsers, memberFilter]);
+
+  // =========================
+  // Baptismal date modal
+  // =========================
+  const openBaptismModal = (userRow) => {
+    setErr("");
+    setBaptismModal({
+      open: true,
+      user_details_id: userRow.user_details_id,
+      full_name: userRow.full_name,
+      baptismal_date: userRow.baptismal_date ? String(userRow.baptismal_date).slice(0, 10) : "",
+    });
+  };
+
+  const saveBaptismalDate = async () => {
+    try {
+      setErr("");
+      if (!baptismModal.user_details_id) return setErr("Missing user_details_id.");
+      if (!baptismModal.baptismal_date) return setErr("Please select a baptismal date.");
+
+      setBaptismSaving(true);
+
+      const { error } = await supabase
+        .from("users_details")
+        .update({ baptismal_date: baptismModal.baptismal_date })
+        .eq("user_details_id", baptismModal.user_details_id);
+
+      if (error) throw error;
+
+      setMemberUsers((prev) =>
+        prev.map((u) =>
+          u.user_details_id === baptismModal.user_details_id ? { ...u, baptismal_date: baptismModal.baptismal_date } : u
+        )
+      );
+
+      setBaptismModal({ open: false, user_details_id: null, full_name: "", baptismal_date: "" });
+      setConfirmMsg("Baptismal date updated successfully!");
+      setShowConfirm(true);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Failed to update baptismal date.");
+    } finally {
+      setBaptismSaving(false);
+    }
+  };
+
+  // =========================
+  // Init + tab-based fetching
+  // =========================
   useEffect(() => {
     let mounted = true;
     (async () => {
+      if (!mounted) return;
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("id, full_name, email, branch, role, status, approval_status, last_modified, branch_risk");
-        const normalized = (!error && data && data.length) ? data : demoUsers();
-        if (mounted) setUsers(normalized);
-        const { data: logData } = await supabase
-          .from("audit_logs")
-          .select("id, ts, action, previous_role, new_role, approved_by, reason")
-          .order("ts", { ascending: false });
-        if (mounted) setLogs(logData && logData.length ? logData : demoLogs());
-
-        const { data: pastorData } = await supabase
-          .from("pastor_assignments")
-          .select("id, pastor_id, branch")
-          .order("id", { ascending: true });
-        if (mounted) setPastorAssignments(pastorData && pastorData.length ? pastorData : demoPastorAssignments());
-
-        const { data: memberData } = await supabase
-          .from("members")
-          .select("id, name, branch, status, avatar")
-          .order("name", { ascending: true });
-        if (mounted) setMembers(memberData && memberData.length ? memberData : demoMembers());
-      } catch (_) {
-        if (mounted) {
-          setUsers(demoUsers());
-          setLogs(demoLogs());
-          setPastorAssignments(demoPastorAssignments());
-          setMembers(demoMembers());
-        }
+        await fetchBranches();
+        await fetchEligibleMembers();
       } finally {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filtered = useMemo(() => users.filter((u) => (filterRole ? u.role === filterRole : true) && (filterStatus ? (u.approval_status || "Pending") === filterStatus || (u.status === filterStatus) : true)), [users, filterRole, filterStatus]);
-
-  function openModal(userId, action, targetRole = null) {
-    setModal({ open: true, userId, action, targetRole, reason: "" });
-  }
-
-  async function approveHighRole(userId, role, reason) {
-    setSaving(true);
-    const ts = new Date().toISOString();
-    try {
-      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role, approval_status: "Approved", last_modified: ts } : u));
-      await supabase.from("users").update({ role, approval_status: "Approved", last_modified: ts }).eq("id", userId);
-      await supabase.from("audit_logs").insert({ ts, action: `Role changed to ${role}`, user_id: userId, previous_role: getUser(userId)?.role, new_role: role, approved_by: "Bishop", reason });
-    } finally {
-      setSaving(false);
-      setModal({ open: false, userId: null, targetRole: null, action: null, reason: "" });
-    }
-  }
-
-  async function suspendUser(userId, reason) {
-    setSaving(true);
-    const ts = new Date().toISOString();
-    try {
-      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, status: "Suspended", approval_status: "Approved", last_modified: ts } : u));
-      await supabase.from("users").update({ status: "Suspended", approval_status: "Approved", last_modified: ts }).eq("id", userId);
-      await supabase.from("audit_logs").insert({ ts, action: `Account suspended`, user_id: userId, approved_by: "Bishop", reason });
-    } finally {
-      setSaving(false);
-      setModal({ open: false, userId: null, targetRole: null, action: null, reason: "" });
-    }
-  }
-
-  async function reinstateUser(userId, reason) {
-    setSaving(true);
-    const ts = new Date().toISOString();
-    try {
-      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, status: "Active", approval_status: "Approved", last_modified: ts } : u));
-      await supabase.from("users").update({ status: "Active", approval_status: "Approved", last_modified: ts }).eq("id", userId);
-      await supabase.from("audit_logs").insert({ ts, action: `Account reinstated`, user_id: userId, approved_by: "Bishop", reason });
-    } finally {
-      setSaving(false);
-      setModal({ open: false, userId: null, targetRole: null, action: null, reason: "" });
-    }
-  }
-
-  function getUser(id) {
-    return users.find((u) => u.id === id);
-  }
-
-  function branchRiskTag(risk) {
-    if (risk === "High") return <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-50 text-red-700">🔴 High</span>;
-    if (risk === "Medium") return <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700">🟡 High Turnover</span>;
-    return <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">🟢 Normal</span>;
-  }
-
-  function toggleBulk(id) {
-    setBulkSelection((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  }
-
-  async function bulkApprove(reason) {
-    for (const id of bulkSelection) {
-      const u = getUser(id);
-      if (!u) continue;
-      await approveHighRole(id, u.role, reason || "Bulk approval");
-    }
-    setBulkSelection([]);
-  }
-
-  async function bulkReject(reason) {
-    for (const id of bulkSelection) {
-      const ts = new Date().toISOString();
-      setUsers((prev) => prev.map((u) => u.id === id ? { ...u, approval_status: "Rejected", last_modified: ts } : u));
-      await supabase.from("users").update({ approval_status: "Rejected", last_modified: ts }).eq("id", id);
-      await supabase.from("audit_logs").insert({ ts, action: `Role request rejected`, user_id: id, approved_by: "Bishop", reason: reason || "Bulk rejection" });
-    }
-    setBulkSelection([]);
-    setModal({ open: false, userId: null, targetRole: null, action: null, reason: "" });
-  }
-
-  async function assignPastorToBranch(pastorId, branch) {
-    const existing = pastorAssignments.find((p) => p.pastor_id === pastorId);
-    const record = { pastor_id: pastorId, branch };
-    setPastorAssignments((prev) => {
-      if (existing) return prev.map((p) => p.pastor_id === pastorId ? { ...p, branch } : p);
-      return [...prev, { id: Date.now(), ...record }];
-    });
-    try {
-      if (existing) {
-        await supabase.from("pastor_assignments").update({ branch }).eq("pastor_id", pastorId);
-      } else {
-        await supabase.from("pastor_assignments").insert(record);
-      }
-    } catch (err) {
-      console.warn("assignPastorToBranch error", err?.message);
-    }
-  }
+  useEffect(() => {
+    if (mainTab === "add-user") fetchEligibleMembers();
+    if (mainTab === "pastors") fetchPastors();
+    if (mainTab === "members") fetchMemberRoleUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header />
-        <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+
+       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        <div className="w-full space-y-6">
+         <div className="flex items-center justify-between gap-3 flex-wrap">
+
             <div>
               <h1 className="text-3xl font-bold text-gray-900">User & Role Management</h1>
-              <p className="text-gray-600 text-sm">Manage assignments, roles, and membership across the organization.</p>
+              <p className="text-gray-600 text-sm">
+                Bishop view: create accounts for baptized members, assign pastors to branches, and manage member records.
+              </p>
             </div>
           </div>
+
+          {err && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-3 text-sm">{err}</div>
+          )}
 
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
             <div className="flex border-b border-gray-100">
               <button
-                onClick={() => setMainTab("assignments")}
+                onClick={() => setMainTab("add-user")}
                 className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                  mainTab === "assignments" ? "border-b-2 border-emerald-600 text-emerald-600" : "text-gray-500 hover:text-gray-700"
+                  mainTab === "add-user"
+                    ? "border-b-2 border-emerald-600 text-emerald-600"
+                    : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                Assignments
+                Add User
               </button>
               <button
                 onClick={() => setMainTab("pastors")}
                 className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                  mainTab === "pastors" ? "border-b-2 border-emerald-600 text-emerald-600" : "text-gray-500 hover:text-gray-700"
+                  mainTab === "pastors"
+                    ? "border-b-2 border-emerald-600 text-emerald-600"
+                    : "text-gray-500 hover:text-gray-700"
                 }`}
               >
                 Pastor Assignments
@@ -194,7 +574,9 @@ export default function BishopUserRoles() {
               <button
                 onClick={() => setMainTab("members")}
                 className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                  mainTab === "members" ? "border-b-2 border-emerald-600 text-emerald-600" : "text-gray-500 hover:text-gray-700"
+                  mainTab === "members"
+                    ? "border-b-2 border-emerald-600 text-emerald-600"
+                    : "text-gray-500 hover:text-gray-700"
                 }`}
               >
                 Members
@@ -202,408 +584,573 @@ export default function BishopUserRoles() {
             </div>
 
             <div className="p-6 space-y-6">
-              {mainTab === "assignments" && (
+              {/* =========================
+                  ADD USER TAB
+                 ========================= */}
+              {mainTab === "add-user" && (
                 <>
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <p className="text-sm text-gray-600">RBAC enforced. Certain role changes require Bishop approval. All changes are audit-logged.</p>
-                    <div className="flex items-center gap-2">
-                      <select className="border rounded-md px-3 py-2 text-sm" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
-                        <option value="">All Roles</option>
-                        <option value="Admin">Admin</option>
-                        <option value="Finance Head">Finance Head</option>
-                        <option value="Pastor">Pastor</option>
-                        <option value="Worker">Worker</option>
-                      </select>
-                      <select className="border rounded-md px-3 py-2 text-sm" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                        <option value="">All Status</option>
-                        <option value="Pending">Pending Approval</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                        <option value="Suspended">Suspended</option>
-                      </select>
-                      <button onClick={() => setShowLogs(true)} className="inline-flex items-center gap-1 border border-gray-200 px-3 py-2 rounded-md text-sm bg-white shadow-sm hover:bg-gray-50">
-                        <ScrollText size={16} /> View Audit Log
-                      </button>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex items-start gap-2">
+                    <Info size={18} className="mt-0.5 text-amber-700" />
+                    <div>
+                      <div className="font-semibold">Add User</div>
+                      <div className="text-amber-800">
+                        Select a baptized member and create a system account. (Auth ID is handled internally.)
+                      </div>
                     </div>
                   </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-4 flex items-center justify-between text-sm text-gray-700 border border-gray-100">
-            <div className="flex items-center gap-2"><Info size={16} className="text-amber-600" /> Role change thresholds are enforced (Worker→Pastor, Pastor→Admin, Admin→Finance Head require Bishop approval).</div>
-            <div className="flex items-center gap-3">
-              {loading && <span className="text-gray-500">Loading…</span>}
-              <button disabled={bulkSelection.length === 0} onClick={() => setModal({ open: true, action: "bulk-approve", userId: null, targetRole: null, reason: "" })} className="bg-emerald-600 text-white px-3 py-2 rounded-md disabled:opacity-50 shadow-sm hover:bg-emerald-700">Bulk Approve</button>
-              <button disabled={bulkSelection.length === 0} onClick={() => setModal({ open: true, action: "bulk-reject", userId: null, targetRole: null, reason: "" })} className="bg-rose-600 text-white px-3 py-2 rounded-md disabled:opacity-50 shadow-sm hover:bg-rose-700">Bulk Reject</button>
-            </div>
-          </div>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="w-full md:w-1/2">
+                      <label className="block text-sm font-medium mb-2">Search Baptized Members</label>
+                      <input
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search by name or email"
+                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-200"
+                      />
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {membersLoading ? "Loading..." : `${filteredEligibleMembers.length} member(s) found`}
+                    </div>
+                  </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm text-left">
-                <thead className="bg-gray-50 text-gray-600">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">
-                      <input type="checkbox" onChange={(e) => setBulkSelection(e.target.checked ? filtered.map((u) => u.id) : [])} checked={bulkSelection.length === filtered.length && filtered.length > 0} />
-                    </th>
-                    <th className="px-4 py-3 font-semibold">Name</th>
-                    <th className="px-4 py-3 font-semibold">Email</th>
-                    <th className="px-4 py-3 font-semibold">Branch</th>
-                    <th className="px-4 py-3 font-semibold">Role</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 font-semibold">Approval Status</th>
-                    <th className="px-4 py-3 font-semibold">Last Modified</th>
-                    <th className="px-4 py-3 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filtered.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <input type="checkbox" checked={bulkSelection.includes(u.id)} onChange={() => toggleBulk(u.id)} />
-                      </td>
-                      <td className="px-4 py-3 text-gray-900 font-semibold">{u.full_name || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{u.email || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700 flex items-center gap-2">{u.branch || "-"} {branchRiskTag(u.branch_risk)}</td>
-                      <td className="px-4 py-3 text-gray-700">{u.role || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{u.status || "Active"}</td>
-                      <td className="px-4 py-3 text-gray-700">{u.approval_status || "Pending"}</td>
-                      <td className="px-4 py-3 text-gray-700">{u.last_modified ? new Date(u.last_modified).toLocaleString() : "—"}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            className="inline-flex items-center gap-1 border border-gray-200 px-3 py-1 rounded-md hover:bg-gray-50"
-                            onClick={() => setDrawerUser(u)}
-                          >
-                            <Eye size={16} /> View Details
-                          </button>
-                          {u.role !== "Admin" && (
-                            <button
-                              className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1 rounded-md hover:bg-emerald-700 disabled:opacity-50"
-                              onClick={() => openModal(u.id, "approve", "Admin")}
-                              disabled={saving}
-                            >
-                              <ShieldCheck size={16} /> Approve Admin
-                            </button>
-                          )}
-                          {u.role === "Admin" && (
-                            <button
-                              className="inline-flex items-center gap-1 bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                              onClick={() => openModal(u.id, "approve", "Finance Head")}
-                              disabled={saving}
-                            >
-                              <ShieldCheck size={16} /> Approve Finance Head
-                            </button>
-                          )}
-                          {u.status === "Suspended" ? (
-                            <button
-                              className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1 rounded-md hover:bg-emerald-700 disabled:opacity-50"
-                              onClick={() => openModal(u.id, "reinstate")}
-                              disabled={saving}
-                            >
-                              <CheckCircle2 size={16} /> Reinstate
-                            </button>
-                          ) : (
-                            <button
-                              className="inline-flex items-center gap-1 bg-rose-600 text-white px-3 py-1 rounded-md hover:bg-rose-700 disabled:opacity-50"
-                              onClick={() => openModal(u.id, "suspend")}
-                              disabled={saving}
-                            >
-                              <Ban size={16} /> Suspend
-                            </button>
-                          )}
+                  <div className="border rounded-xl overflow-hidden">
+                    <div className="max-h-80 overflow-auto">
+                      {membersLoading ? (
+                        <div className="p-6 text-center text-gray-600">Loading members…</div>
+                      ) : filteredEligibleMembers.length === 0 ? (
+                        <div className="p-6 text-center text-gray-500">No baptized members found.</div>
+                      ) : (
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 text-xs text-gray-600 sticky top-0">
+                            <tr>
+                              <th className="px-4 py-3 text-left">Member</th>
+                              <th className="px-4 py-3 text-left">Email</th>
+                              <th className="px-4 py-3 text-left">Branch</th>
+                              <th className="px-4 py-3 text-left">Baptismal Date</th>
+                              <th className="px-4 py-3 text-center">Accounts</th>
+                              <th className="px-4 py-3 text-center">Auth Linked</th>
+                              <th className="px-4 py-3 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredEligibleMembers.map((m) => (
+                              <tr key={m.user_details_id} className="border-t hover:bg-gray-50">
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <img
+                                      src={m.photo_url || DEFAULT_PROFILE_IMG}
+                                      alt="profile"
+                                      className="w-9 h-9 rounded-full object-cover border"
+                                    />
+                                    <div className="font-medium">{m.full_name}</div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">{m.display_member_email || "-"}</td>
+                                <td className="px-4 py-3">{m.branch_name}</td>
+                                <td className="px-4 py-3">{fmtDateOnly(m.baptismal_date)}</td>
+                                <td className="px-4 py-3 text-center">{m.has_accounts_count}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      m.preferred_auth_user_id
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : "bg-rose-50 text-rose-700"
+                                    }`}
+                                  >
+                                    {m.preferred_auth_user_id ? "Yes" : "No"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedMember(m);
+                                      // default designated branch = member current branch (editable)
+                                      setCreateForm((p) => ({
+                                        ...p,
+                                        designated_branch_id: m.branch_id ? String(m.branch_id) : p.designated_branch_id,
+                                      }));
+                                    }}
+                                    className="px-3 py-1 rounded-lg text-white text-sm font-medium transition-all hover:scale-105 bg-emerald-600 hover:bg-emerald-700"
+                                  >
+                                    Select
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Better card UI */}
+                  <div className="border-t pt-6">
+                    <h4 className="font-semibold text-lg mb-4">Selected Member & Create Account</h4>
+
+                    {selectedMember ? (
+                      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                          {/* LEFT */}
+                          <div className="lg:col-span-7 space-y-4">
+                            <div className="flex items-center gap-4">
+                              <img
+                                src={selectedMember.photo_url || DEFAULT_PROFILE_IMG}
+                                alt="profile"
+                                className="w-14 h-14 rounded-full object-cover border"
+                              />
+                              <div>
+                                <div className="text-lg font-semibold text-gray-900">{selectedMember.full_name}</div>
+                                <div className="text-sm text-gray-500">{selectedMember.display_member_email || "-"}</div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <InfoBox label="Contact Number" value={selectedMember.contact_number || "-"} />
+                              <InfoBox label="Baptismal Date" value={fmtDateOnly(selectedMember.baptismal_date)} />
+                              <InfoBox label="Current Branch" value={selectedMember.branch_name || "-"} />
+                              <InfoBox label="Existing Accounts" value={String(selectedMember.has_accounts_count ?? 0)} />
+                            </div>
+
+                            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
+                              <div className="font-semibold text-gray-900 mb-1">Note</div>
+                              For pastors, the branch you choose below will update <code>users_details.branch_id</code>.
+                            </div>
+                          </div>
+
+                          {/* RIGHT */}
+                          <div className="lg:col-span-5">
+                            <div className="rounded-2xl border border-gray-200 p-5 bg-white">
+                              <div className="text-sm font-semibold text-gray-900 mb-4">Account Settings</div>
+
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">Role *</label>
+                                  <select
+                                    value={createForm.role}
+                                    onChange={(e) =>
+                                      setCreateForm((p) => ({
+                                        ...p,
+                                        role: e.target.value,
+                                        designated_branch_id:
+                                          e.target.value === "PASTOR"
+                                            ? p.designated_branch_id || (selectedMember.branch_id ? String(selectedMember.branch_id) : "")
+                                            : "",
+                                      }))
+                                    }
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-200"
+                                  >
+                                    <option value="PASTOR">Pastor</option>
+                                    <option value="FINANCE">Finance</option>
+                                    <option value="STAFF">Staff</option>
+                                  </select>
+                                </div>
+
+                                {createForm.role === "PASTOR" && (
+                                  <div>
+                                    <label className="block text-sm font-medium mb-2">Designated Branch (Pastor) *</label>
+                                    <select
+                                      value={createForm.designated_branch_id}
+                                      onChange={(e) => setCreateForm((p) => ({ ...p, designated_branch_id: e.target.value }))}
+                                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-200"
+                                      disabled={branchesLoading}
+                                    >
+                                      <option value="">{branchesLoading ? "Loading branches..." : "Select branch"}</option>
+                                      {branches.map((b) => (
+                                        <option key={b.branch_id} value={String(b.branch_id)}>
+                                          {b.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-medium mb-2">Access Start Date *</label>
+                                    <input
+                                      type="date"
+                                      value={createForm.access_start}
+                                      onChange={(e) => setCreateForm((p) => ({ ...p, access_start: e.target.value }))}
+                                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-200"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium mb-2">Access End Date *</label>
+                                    <input
+                                      type="date"
+                                      value={createForm.access_end}
+                                      onChange={(e) => setCreateForm((p) => ({ ...p, access_end: e.target.value }))}
+                                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-200"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-3 justify-end pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedMember(null);
+                                      setCreateForm({ role: "STAFF", access_start: "", access_end: "", designated_branch_id: "" });
+                                    }}
+                                    className="px-5 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-medium"
+                                  >
+                                    Clear
+                                  </button>
+
+                                  <button
+                                    onClick={handleCreateAccountForMember}
+                                    disabled={creatingUser}
+                                    className="px-5 py-2 rounded-lg text-white font-medium transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-600 hover:bg-emerald-700"
+                                    title={
+                                      selectedMember.preferred_auth_user_id
+                                        ? "Create account"
+                                        : "Member has no linked Auth account"
+                                    }
+                                  >
+                                    {creatingUser ? "Creating..." : "Create Account"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filtered.length === 0 && (
-                    <tr>
-                      <td className="px-4 py-6 text-center text-xs text-gray-500" colSpan={6}>No users match the filter.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-gray-500 mt-4">Restrictions: Cannot edit personal data or bypass audit logs.</p>
-          </div>
-
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500 border-2 border-dashed rounded-lg">
+                        No member selected. Select a baptized member above to create an account.
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
+              {/* =========================
+                  PASTORS TAB
+                 ========================= */}
               {mainTab === "pastors" && (
                 <>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Pastor Branch Assignments</h3>
-                      <p className="text-sm text-gray-600">Assign pastors to lead and guide specific branches (read-only on personal data).</p>
-                    </div>
-                    <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm">
-                      <button className={`px-3 py-2 ${pastorTab === "assign" ? "bg-emerald-50 text-emerald-700" : "bg-white text-gray-700"}`} onClick={() => setPastorTab("assign")}>Assign</button>
-                      <button className={`px-3 py-2 ${pastorTab === "view" ? "bg-emerald-50 text-emerald-700" : "bg-white text-gray-700"}`} onClick={() => setPastorTab("view")}>Current Assignments</button>
+                      <h3 className="text-lg font-semibold text-gray-900">Pastor Assignments</h3>
+                      <p className="text-sm text-gray-600">
+                        Changing a pastor’s branch updates <code>users_details.branch_id</code>.
+                      </p>
                     </div>
                   </div>
 
-            {pastorTab === "assign" && (
-              <div className="space-y-2 text-sm text-gray-700">
-                {users.filter((u) => u.role === "Pastor").map((p) => (
-                  <div key={`pastor-${p.id}`} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
-                    <div>
-                      <p className="font-semibold text-gray-900">{p.full_name}</p>
-                      <p className="text-xs text-gray-500">Current: {pastorAssignments.find((x) => x.pastor_id === p.id)?.branch || "Unassigned"}</p>
-                    </div>
-                    <select
-                      className="border rounded-md px-2 py-1"
-                      value={pastorAssignments.find((x) => x.pastor_id === p.id)?.branch || ""}
-                      onChange={(e) => assignPastorToBranch(p.id, e.target.value)}
-                    >
-                      <option value="">Select branch</option>
-                      {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </div>
-                ))}
-                {users.filter((u) => u.role === "Pastor").length === 0 && (
-                  <div className="text-xs text-gray-500">No pastors available for assignment.</div>
-                )}
-              </div>
-            )}
-
-                  {pastorTab === "view" && (
+                  {pastorsLoading ? (
+                    <div className="p-6 text-center text-gray-600">Loading pastors…</div>
+                  ) : pastors.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500">No pastors found (role = PASTOR).</div>
+                  ) : (
                     <div className="space-y-2 text-sm text-gray-700">
-                      {pastorAssignments.length > 0 ? pastorAssignments.map((a) => {
-                        const pastor = getUser(a.pastor_id);
-                        return (
-                          <div key={`assign-${a.id}`} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
-                            <span>{pastor?.full_name || "Pastor"} → {a.branch}</span>
-                            <span className="text-xs text-gray-500">Pastoral oversight</span>
+                      {pastors.map((p) => (
+                        <div
+                          key={`pastor-${p.user_id}`}
+                          className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2"
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={p.photo_url || DEFAULT_PROFILE_IMG}
+                              alt="pastor"
+                              className="w-10 h-10 rounded-full object-cover border"
+                            />
+                            <div>
+                              <p className="font-semibold text-gray-900">{p.full_name}</p>
+                              <p className="text-xs text-gray-500">
+                                Email: {p.display_email} • Current: {p.branch_name}
+                              </p>
+                            </div>
                           </div>
-                        );
-                      }) : <div className="text-xs text-gray-500">No assignments yet.</div>}
+
+                          <select
+                            className="border rounded-md px-2 py-2"
+                            value={p.details_branch_id ? String(p.details_branch_id) : ""}
+                            onChange={(e) => assignPastorToBranch(p.user_details_id, e.target.value)}
+                            disabled={branchesLoading || !p.user_details_id}
+                            title={!p.user_details_id ? "Missing users_details link" : "Assign branch"}
+                          >
+                            <option value="">{branchesLoading ? "Loading branches..." : "Select branch"}</option>
+                            {branches.map((b) => (
+                              <option key={b.branch_id} value={String(b.branch_id)}>
+                                {b.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </>
               )}
 
+              {/* =========================
+                  MEMBERS TAB
+                 ========================= */}
               {mainTab === "members" && (
-                <MembersView members={members} memberFilter={memberFilter} setMemberFilter={setMemberFilter} />
+                <>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Members (role = member)</h3>
+                      <p className="text-sm text-gray-600">
+                        View member details and set baptismal date to upgrade their membership record.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="border rounded-md px-3 py-2 text-sm"
+                        value={memberFilter.branch}
+                        onChange={(e) => setMemberFilter((p) => ({ ...p, branch: e.target.value }))}
+                      >
+                        <option value="">All Branches</option>
+                        {branches.map((b) => (
+                          <option key={b.branch_id} value={b.name}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        className="border rounded-md px-3 py-2 text-sm"
+                        value={memberFilter.status}
+                        onChange={(e) => setMemberFilter((p) => ({ ...p, status: e.target.value }))}
+                      >
+                        <option value="">All Status</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {membersTabLoading ? (
+                    <div className="p-6 text-center text-gray-600">Loading members…</div>
+                  ) : filteredMemberUsers.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500">No members found.</div>
+                  ) : (
+                    <div className="border rounded-xl overflow-hidden">
+                      <div className="overflow-auto">
+                        <table className="min-w-full text-sm text-left">
+                          <thead className="bg-gray-50 text-gray-600">
+                            <tr>
+                              <th className="px-4 py-3 font-semibold">Member</th>
+                              <th className="px-4 py-3 font-semibold">Email</th>
+                              <th className="px-4 py-3 font-semibold">Branch</th>
+                              <th className="px-4 py-3 font-semibold">Contact</th>
+                              <th className="px-4 py-3 font-semibold">Baptismal Date</th>
+                              <th className="px-4 py-3 font-semibold">Last Attended</th>
+                              <th className="px-4 py-3 font-semibold">Status</th>
+                              <th className="px-4 py-3 font-semibold">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {filteredMemberUsers.map((u) => (
+                              <tr key={u.user_id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <img
+                                      src={u.photo_url || DEFAULT_PROFILE_IMG}
+                                      alt="member"
+                                      className="w-10 h-10 rounded-full object-cover border"
+                                    />
+                                    <div className="leading-tight">
+                                      <div className="font-semibold text-gray-900">{u.full_name}</div>
+                                      <div className="text-xs text-gray-500">ID: {u.user_id}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">{stripMemberSuffixEmail(u.email) || "-"}</td>
+                                <td className="px-4 py-3">{u.branch_name || "-"}</td>
+                                <td className="px-4 py-3">{u.contact_number || "-"}</td>
+                                <td className="px-4 py-3">{fmtDateOnly(u.baptismal_date)}</td>
+                                <td className="px-4 py-3">{fmtDateTime(u.last_attended)}</td>
+                                <td className="px-4 py-3">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      u.is_active ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                                    }`}
+                                  >
+                                    {u.is_active ? "Active" : "Inactive"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {u.baptismal_date ? (
+                                      <button
+                                        className="inline-flex items-center gap-1 border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50 text-xs"
+                                        onClick={() => setDrawerUser(u)}
+                                      >
+                                        <Eye size={16} /> View Details
+                                      </button>
+                                    ) : (
+                                      <>
+                                        <button
+                                          className="inline-flex items-center gap-1 border border-gray-200 px-3 py-2 rounded-md hover:bg-gray-50 text-xs"
+                                          onClick={() => setDrawerUser(u)}
+                                        >
+                                          <Eye size={16} /> View Details
+                                        </button>
+                                        <button
+                                          className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-2 rounded-md hover:bg-emerald-700 text-xs"
+                                          onClick={() => openBaptismModal(u)}
+                                          disabled={!u.user_details_id}
+                                          title={!u.user_details_id ? "Missing user_details link" : "Set baptismal date"}
+                                        >
+                                          <CheckCircle2 size={16} /> Set Baptismal Date
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
-
-          <AuditLogModal open={showLogs} onClose={() => setShowLogs(false)} logs={logs} />
-          <ReasonModal modal={modal} setModal={setModal} onConfirm={(reason) => {
-            if (modal.action === "approve") approveHighRole(modal.userId, modal.targetRole, reason);
-            else if (modal.action === "suspend") suspendUser(modal.userId, reason);
-            else if (modal.action === "reinstate") reinstateUser(modal.userId, reason);
-            else if (modal.action === "bulk-reject") bulkReject(reason);
-            else if (modal.action === "bulk-approve") bulkApprove(reason);
-          }} onClose={() => setModal({ open: false, userId: null, targetRole: null, action: null, reason: "" })} />
-          <UserDrawer user={drawerUser} onClose={() => setDrawerUser(null)} />
+           </div>
         </main>
       </div>
+
+      {/* Drawer */}
+      <UserDrawer user={drawerUser} onClose={() => setDrawerUser(null)} />
+
+      {/* Baptism modal */}
+      {baptismModal.open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Set Baptismal Date</h3>
+              <button
+                className="text-gray-500 hover:text-gray-700"
+                onClick={() => setBaptismModal({ open: false, user_details_id: null, full_name: "", baptismal_date: "" })}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="text-sm text-gray-700">
+              Member: <span className="font-semibold">{baptismModal.full_name}</span>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Baptismal Date *</label>
+              <input
+                type="date"
+                value={baptismModal.baptismal_date}
+                onChange={(e) => setBaptismModal((p) => ({ ...p, baptismal_date: e.target.value }))}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-200"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                className="px-4 py-2 text-sm border rounded-md"
+                onClick={() => setBaptismModal({ open: false, user_details_id: null, full_name: "", baptismal_date: "" })}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-md disabled:opacity-50"
+                disabled={!baptismModal.baptismal_date || baptismSaving}
+                onClick={saveBaptismalDate}
+              >
+                {baptismSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="text-emerald-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Success</h3>
+            </div>
+            <p className="text-sm text-gray-700">{confirmMsg}</p>
+            <div className="flex justify-end">
+              <button className="px-4 py-2 bg-emerald-600 text-white rounded-md" onClick={() => setShowConfirm(false)}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function demoUsers() {
-  return [
-    { id: 1, full_name: "Alice Admin", email: "alice@example.com", branch: "Sampaloc (Main Branch)", role: "Admin", status: "Active", approval_status: "Approved", branch_risk: "Low", last_modified: new Date().toISOString() },
-    { id: 2, full_name: "Frank Finance", email: "frank@example.com", branch: "Cavite", role: "Finance Head", status: "Active", approval_status: "Approved", branch_risk: "Low", last_modified: new Date().toISOString() },
-    { id: 3, full_name: "Paul Pastor", email: "paul@example.com", branch: "Vizal Pampanga", role: "Pastor", status: "Active", approval_status: "Pending", branch_risk: "Medium", last_modified: new Date().toISOString() },
-    { id: 4, full_name: "Wendy Worker", email: "wendy@example.com", branch: "Bustos", role: "Worker", status: "Suspended", approval_status: "Rejected", branch_risk: "High", last_modified: new Date().toISOString() },
-  ];
-}
-
-function demoLogs() {
-  return [
-    { id: 1, ts: new Date().toISOString(), action: "Role changed to Admin", previous_role: "Pastor", new_role: "Admin", approved_by: "Bishop", reason: "Elevated for regional oversight" },
-    { id: 2, ts: new Date().toISOString(), action: "Account suspended", previous_role: "Worker", new_role: "Worker", approved_by: "Bishop", reason: "Policy violation" },
-  ];
-}
-
-function demoPastorAssignments() {
-  return [
-    { id: 1, pastor_id: 3, branch: "Vizal Pampanga" },
-  ];
-}
-
-function demoMembers() {
-  return [
-    { id: 1, name: "Arianne Alvarez", branch: "Main", status: "Active", avatar: "https://i.pravatar.cc/150?img=1" },
-    { id: 2, name: "Jose Adrian Suriaga", branch: "Bustos", status: "Active", avatar: "https://i.pravatar.cc/150?img=13" },
-    { id: 3, name: "Sophia Toreffiel", branch: "Cavite", status: "Active", avatar: "https://i.pravatar.cc/150?img=5" },
-    { id: 4, name: "Nicos Nicolas", branch: "San Roque", status: "Active", avatar: "https://i.pravatar.cc/150?img=8" },
-    { id: 5, name: "Janna Mendez", branch: "Main", status: "Active", avatar: "https://i.pravatar.cc/150?img=9" },
-    { id: 6, name: "Trishia Kyle Bagtas", branch: "Bustos", status: "Inactive", avatar: "https://i.pravatar.cc/150?img=10" },
-    { id: 7, name: "JC Cruz", branch: "Cavite", status: "Inactive", avatar: "https://i.pravatar.cc/150?img=14" },
-    { id: 8, name: "Jasper Bernabe", branch: "Main", status: "Inactive", avatar: "https://i.pravatar.cc/150?img=15" },
-    { id: 9, name: "Vanessa Ortiz", branch: "San Roque", status: "Inactive", avatar: "https://i.pravatar.cc/150?img=20" },
-    { id: 10, name: "Ava Powell", branch: "Bustos", status: "Inactive", avatar: "https://i.pravatar.cc/150?img=23" },
-  ];
-}
-
-function MembersView({ members, memberFilter, setMemberFilter }) {
-  const filtered = useMemo(() => {
-    return members.filter((m) => {
-      if (memberFilter.branch && m.branch !== memberFilter.branch) return false;
-      if (memberFilter.status && m.status !== memberFilter.status) return false;
-      return true;
-    });
-  }, [members, memberFilter]);
-
-  const activeMembers = filtered.filter((m) => m.status === "Active");
-  const inactiveMembers = filtered.filter((m) => m.status === "Inactive");
-
+// =========================
+// Small components
+// =========================
+function InfoBox({ label, value, mono }) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <select
-            className="border rounded-md px-3 py-2 text-sm"
-            value={memberFilter.branch}
-            onChange={(e) => setMemberFilter({ ...memberFilter, branch: e.target.value })}
-          >
-            <option value="">All Branches</option>
-            {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
-          <select
-            className="border rounded-md px-3 py-2 text-sm"
-            value={memberFilter.status}
-            onChange={(e) => setMemberFilter({ ...memberFilter, status: e.target.value })}
-          >
-            <option value="">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
-        </div>
-        <button className="bg-emerald-600 text-white px-4 py-2 rounded-md text-sm hover:bg-emerald-700">
-          Add Member
-        </button>
-      </div>
-
-      <div>
-        <h3 className="text-base font-semibold text-gray-900 mb-3">Active Members</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {activeMembers.map((member) => (
-            <MemberCard key={member.id} member={member} />
-          ))}
-        </div>
-        {activeMembers.length === 0 && <p className="text-sm text-gray-500">No active members.</p>}
-      </div>
-
-      <div>
-        <h3 className="text-base font-semibold text-gray-900 mb-3">Inactive Members</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {inactiveMembers.map((member) => (
-            <MemberCard key={member.id} member={member} />
-          ))}
-        </div>
-        {inactiveMembers.length === 0 && <p className="text-sm text-gray-500">No inactive members.</p>}
-      </div>
-    </div>
-  );
-}
-
-function MemberCard({ member }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-      <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-        <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
-      </div>
-      <div className="p-3 text-center">
-        <h4 className="text-sm font-semibold text-gray-900">{member.name}</h4>
-        <button className="text-xs text-emerald-600 hover:underline mt-1">View Account</button>
-      </div>
-    </div>
-  );
-}
-
-function ReasonModal({ modal, setModal, onClose, onConfirm }) {
-  if (!modal.open) return null;
-  const actionLabel = modal.action === "approve" ? `Approve ${modal.targetRole}` : modal.action === "suspend" ? "Suspend" : modal.action === "reinstate" ? "Reinstate" : modal.action === "bulk-reject" ? "Bulk Reject" : "Bulk Approve";
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">{actionLabel}</h3>
-        <p className="text-sm text-gray-600">Approving this role grants elevated privileges. Please provide a justification.</p>
-        <textarea
-          className="w-full border rounded-md px-3 py-2 text-sm"
-          rows={3}
-          value={modal.reason}
-          onChange={(e) => setModal({ ...modal, reason: e.target.value })}
-          placeholder="Enter reason for approval/rejection"
-        />
-        <div className="flex items-center justify-end gap-2">
-          <button className="px-3 py-2 text-sm border rounded-md" onClick={onClose}>Cancel</button>
-          <button className="px-3 py-2 text-sm bg-emerald-600 text-white rounded-md" disabled={!modal.reason} onClick={() => onConfirm(modal.reason)}>Confirm</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AuditLogModal({ open, onClose, logs }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Audit Logs</h3>
-          <button className="text-sm text-gray-500" onClick={onClose}>Close</button>
-        </div>
-        <div className="overflow-x-auto max-h-96">
-          <table className="min-w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600">
-              <tr>
-                <th className="px-3 py-2">Timestamp</th>
-                <th className="px-3 py-2">Previous Role</th>
-                <th className="px-3 py-2">New Role</th>
-                <th className="px-3 py-2">Approved By</th>
-                <th className="px-3 py-2">Reason</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {logs.map((l) => (
-                <tr key={l.id}>
-                  <td className="px-3 py-2 text-gray-700">{new Date(l.ts).toLocaleString()}</td>
-                  <td className="px-3 py-2 text-gray-700">{l.previous_role || "-"}</td>
-                  <td className="px-3 py-2 text-gray-700">{l.new_role || "-"}</td>
-                  <td className="px-3 py-2 text-gray-700">{l.approved_by || "-"}</td>
-                  <td className="px-3 py-2 text-gray-700">{l.reason || "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <div className={`p-3 border rounded-lg bg-gray-50 ${mono ? "font-mono text-xs" : ""}`}>{value || "-"}</div>
     </div>
   );
 }
 
 function UserDrawer({ user, onClose }) {
   if (!user) return null;
+  // Close drawer when clicking the overlay (but not the drawer itself)
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) onClose();
+  };
   return (
-    <div className="fixed inset-0 bg-black/20 flex justify-end z-40">
-      <div className="w-full max-w-md bg-white h-full shadow-xl p-6 space-y-3 overflow-y-auto">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">User Details</h3>
-          <button className="text-sm text-gray-500" onClick={onClose}>Close</button>
+    <div
+      className="fixed inset-0 bg-black/30 flex justify-end z-[100]"
+      onClick={handleOverlayClick}
+      style={{ top: 0, left: 0 }}
+    >
+      <div
+        className="w-full max-w-md bg-white h-full shadow-xl p-6 pt-8 space-y-3 overflow-y-auto relative"
+        style={{ marginTop: 0 }}
+      >
+        <button
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 bg-gray-100 rounded-full p-2 z-10"
+          onClick={onClose}
+          aria-label="Close details"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-xl font-bold text-gray-600">
+            {user.full_name?.[0] || "?"}
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900">User Details</h3>
         </div>
         <Detail label="Name" value={user.full_name} />
-        <Detail label="Email" value={user.email} />
-        <Detail label="Branch" value={user.branch} />
+        <Detail label="Email" value={user.email} mono />
         <Detail label="Role" value={user.role} />
-        <Detail label="Status" value={user.status} />
-        <Detail label="Approval Status" value={user.approval_status || "Pending"} />
-        <Detail label="Last Modified" value={user.last_modified ? new Date(user.last_modified).toLocaleString() : "—"} />
-        <div className="border-t pt-3 mt-3 text-xs text-gray-500">Read-only: account history, attendance summary, ministry involvement, permissions overview.</div>
+        <Detail label="Branch" value={user.branch_name || "-"} />
+        <Detail label="Active" value={user.is_active ? "Active" : "Inactive"} />
+        <div className="border-t pt-3 mt-3 text-xs text-gray-500">
+          Read-only: attendance summary, ministry involvement, permissions overview.
+        </div>
       </div>
     </div>
   );
 }
 
-function Detail({ label, value }) {
+function Detail({ label, value, mono }) {
   return (
     <div className="text-sm text-gray-800">
       <p className="text-gray-500">{label}</p>
-      <p className="font-semibold">{value || "-"}</p>
+      <p className={`font-semibold ${mono ? "font-mono text-xs" : ""}`}>{value || "-"}</p>
     </div>
   );
 }
