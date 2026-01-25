@@ -21,6 +21,8 @@ import BishopFinance from "./pages/bishop/Finance";
 import BishopTasks from "./pages/bishop/Tasks";
 import BishopAnalytics from "./pages/bishop/Analytics";
 import BishopCounseling from "./pages/bishop/Counseling";
+import Ministries from "./pages/bishop/Ministries";
+import RequireBishop from "./routes/RequireBishop";
 import FinanceDashboard from "./pages/finance/FinanceDashboard";
 import FinanceFunds from "./pages/finance/Funds";
 import FinanceStipends from "./pages/finance/Stipends";
@@ -167,6 +169,7 @@ function App() {
           <Route path="/bishop/roles" element={<BishopUserRoles />} />
           <Route path="/bishop/membership" element={<BishopMembership />} />
           <Route path="/bishop/events" element={<BishopEvents />} />
+          <Route path="/bishop/ministries" element={<RequireBishop><Ministries /></RequireBishop>} />
           <Route path="/bishop/finance" element={<BishopFinance />} />
           <Route path="/bishop/tasks" element={<BishopTasks />} />
           <Route path="/bishop/analytics" element={<BishopAnalytics />} />
