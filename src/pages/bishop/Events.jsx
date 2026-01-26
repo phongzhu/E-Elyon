@@ -6,6 +6,48 @@ import { CheckCircle2, Plus } from "lucide-react";
 
 const BUCKET = "church-event"; // storage bucket name
 
+
+// RRULE helpers
+const RR_DAYS = [
+  { label: "Sun", val: "SU" },
+  { label: "Mon", val: "MO" },
+  { label: "Tue", val: "TU" },
+  { label: "Wed", val: "WE" },
+  { label: "Thu", val: "TH" },
+  { label: "Fri", val: "FR" },
+  { label: "Sat", val: "SA" },
+];
+
+function buildRRuleText(r) {
+  if (!r || !r.freq) return "";
+  
+  const parts = [];
+  parts.push(`FREQ=${r.freq}`);
+  parts.push(`INTERVAL=${Math.max(1, Number(r.interval) || 1)}`);
+
+  if (r.freq === "WEEKLY") {
+    const days = Array.isArray(r.byday) && r.byday.length ? r.byday : ["SU"];
+    parts.push(`BYDAY=${days.join(",")}`);
+  }
+
+  if (r.freq === "MONTHLY") {
+    if (r.monthly_mode === "BYMONTHDAY") {
+      parts.push(`BYMONTHDAY=${Math.min(31, Math.max(1, Number(r.bymonthday) || 1))}`);
+    } else {
+      // nth weekday: e.g. 1st Sunday => BYDAY=SU;BYSETPOS=1
+      parts.push(`BYDAY=${r.monthly_byday || "SU"}`);
+      parts.push(`BYSETPOS=${Number(r.bysetpos) || 1}`); // 1..5 or -1
+    }
+  }
+
+  if (r.freq === "YEARLY") {
+    parts.push(`BYMONTH=${Math.min(12, Math.max(1, Number(r.bymonth) || 1))}`);
+    parts.push(`BYMONTHDAY=${Math.min(31, Math.max(1, Number(r.bymonthday_yearly) || 1))}`);
+  }
+
+  return parts.join(";");
+}
+
 function isoLocalFromDateTime(dateStr, timeStr) {
   return new Date(`${dateStr}T${timeStr}:00`);
 }
@@ -79,13 +121,157 @@ function ord(n) {
 }
 
 function seriesRuleText(s) {
-  const day = dowLabel(s.day_of_week);
   const time = `${toTimeHHMM(s.start_time)} - ${toTimeHHMM(s.end_time)}`;
-  const wom = Array.isArray(s.week_of_month) && s.week_of_month.length
-    ? `(${s.week_of_month.map(Number).sort((a, b) => a - b).map(ord).join(", ")} ${day})`
-    : `(Every ${day})`;
-  return `${wom} • ${time}`;
+  const rule = s.rrule_text ? s.rrule_text : "(no rule)";
+  return `${rule} • ${time}`;
 }
+
+function formatRRuleReadable(rruleText) {
+  if (!rruleText) return "(no rule)";
+
+  const parts = {};
+  rruleText.split(";").forEach((part) => {
+    const [key, value] = part.split("=");
+    if (key && value) parts[key] = value;
+  });
+
+  const freq = parts.FREQ || "WEEKLY";
+  const interval = Number(parts.INTERVAL) || 1;
+  const intervalText = interval > 1 ? ` ${interval}` : "";
+
+  if (freq === "WEEKLY") {
+    const days = (parts.BYDAY || "SU").split(",");
+    const dayNames = days.map((d) => {
+      const day = RR_DAYS.find((rd) => rd.val === d);
+      return day ? day.label : d;
+    });
+    return `Every${intervalText} Week (${dayNames.join(", ")})`;
+  }
+
+  if (freq === "MONTHLY") {
+    if (parts.BYMONTHDAY) {
+      return `Every${intervalText} Month on Day ${parts.BYMONTHDAY}`;
+    }
+    if (parts.BYDAY && parts.BYSETPOS) {
+      const day = RR_DAYS.find((rd) => rd.val === parts.BYDAY);
+      const dayName = day ? day.label : parts.BYDAY;
+      const pos = Number(parts.BYSETPOS);
+      const posText = pos === -1 ? "Last" : ord(pos);
+      return `Every${intervalText} Month on ${posText} ${dayName}`;
+    }
+    return `Every${intervalText} Month`;
+  }
+
+  if (freq === "YEARLY") {
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const month = Number(parts.BYMONTH) || 1;
+    const day = parts.BYMONTHDAY || 1;
+    const monthName = monthNames[month - 1] || "Month";
+    return `Every${intervalText} Year on ${monthName} ${day}`;
+  }
+
+  return rruleText;
+}
+
+function formatDateTime12Hour(isoString) {
+  if (!isoString) return "-";
+  
+  const date = new Date(isoString);
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const year = date.getFullYear();
+  
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  const minutesStr = minutes.toString().padStart(2, "0");
+  
+  return `${month} ${day}, ${year}. ${hours}:${minutesStr} ${ampm}`;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "-";
+  
+  const date = new Date(dateStr + "T00:00:00");
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  const month = months[date.getMonth()];
+  const day = date.getDate();
+  const year = date.getFullYear();
+  
+  return `${month} ${day}, ${year}`;
+}
+
+function parseRRuleText(rruleText) {
+  // Parse RRULE string like "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO" into object
+  const result = {
+    freq: "WEEKLY",
+    interval: 1,
+    byday: ["SU"],
+    monthly_mode: "BYMONTHDAY",
+    bymonthday: 1,
+    bysetpos: 1,
+    monthly_byday: "SU",
+    bymonth: 1,
+    bymonthday_yearly: 1,
+  };
+
+  if (!rruleText) return result;
+
+  const parts = rruleText.split(";");
+  parts.forEach((part) => {
+    const [key, value] = part.split("=");
+    if (!key || !value) return;
+
+    switch (key) {
+      case "FREQ":
+        result.freq = value;
+        break;
+      case "INTERVAL":
+        result.interval = Number(value) || 1;
+        break;
+      case "BYDAY":
+        if (result.freq === "WEEKLY") {
+          result.byday = value.split(",");
+        } else if (result.freq === "MONTHLY") {
+          result.monthly_byday = value;
+        }
+        break;
+      case "BYSETPOS":
+        result.bysetpos = Number(value) || 1;
+        result.monthly_mode = "BYSETPOS";
+        break;
+      case "BYMONTHDAY":
+        if (result.freq === "MONTHLY") {
+          result.bymonthday = Number(value) || 1;
+          result.monthly_mode = "BYMONTHDAY";
+        } else if (result.freq === "YEARLY") {
+          result.bymonthday_yearly = Number(value) || 1;
+        }
+        break;
+      case "BYMONTH":
+        result.bymonth = Number(value) || 1;
+        break;
+      default:
+        break;
+    }
+  });
+
+  return result;
+}
+
 
 export default function BishopEvents() {
   // one-time events
@@ -114,17 +300,40 @@ export default function BishopEvents() {
   const [selectedBranchMinistryIds, setSelectedBranchMinistryIds] = useState([]);
 
   const [imageFile, setImageFile] = useState(null);
+  const [existingImagePath, setExistingImagePath] = useState("");
+
+  // view/edit/delete
+  const [showView, setShowView] = useState(false);
+  const [viewKind, setViewKind] = useState(null); // "event" | "series"
+  const [viewItem, setViewItem] = useState(null);
+
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editKind, setEditKind] = useState(null); // "event" | "series"
+  const [editId, setEditId] = useState(null);
 
   // recurring toggle + settings
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurring, setRecurring] = useState({
     starts_on: "",
     ends_on: "",
-    day_of_week: 0, // Sunday
-    every_week: true,
-    week_of_month: [1, 2, 3], // used if every_week=false
     start_time: "",
     end_time: "",
+
+    freq: "WEEKLY",
+    interval: 1,
+
+    // WEEKLY
+    byday: ["SU"],
+
+    // MONTHLY
+    monthly_mode: "BYMONTHDAY",
+    bymonthday: 1,
+    bysetpos: 1,
+    monthly_byday: "SU",
+
+    // YEARLY
+    bymonth: 1,
+    bymonthday_yearly: 1,
   });
 
   // base form (shared)
@@ -262,22 +471,17 @@ export default function BishopEvents() {
         description,
         event_type,
         location,
-        is_open_for_all,
-        branch_id,
-        day_of_week,
-        week_of_month,
+        rrule_text,
         start_time,
         end_time,
         starts_on,
         ends_on,
-        cover_image_path,
-        est_cost,
-        created_by,
-        is_active,
         status,
-        cancel_reason,
-        created_at,
-        updated_at,
+        est_cost,
+        is_open_for_all,
+        cover_image_path,
+        branch_id,
+        is_active,
         branch:branches(name)
       `
       )
@@ -292,7 +496,7 @@ export default function BishopEvents() {
       ...s,
       cover_image_url: s.cover_image_path ? publicUrlFromPath(s.cover_image_path) : "",
       branch_name: s.branch?.name || (s.branch_id ? "Unknown Branch" : "-"),
-      rule_text: seriesRuleText(s),
+      rule_text: formatRRuleReadable(s.rrule_text),
     }));
 
     setSeries(list);
@@ -348,9 +552,16 @@ export default function BishopEvents() {
   }, []);
 
   useEffect(() => {
-    loadBranchMinistries(selectedBranchId)
-      .then(() => setSelectedBranchMinistryIds([]))
-      .catch((e) => console.warn("loadBranchMinistries error:", e?.message));
+    if (!isEditMode) {
+      // Only clear ministry IDs when not in edit mode
+      loadBranchMinistries(selectedBranchId)
+        .then(() => setSelectedBranchMinistryIds([]))
+        .catch((e) => console.warn("loadBranchMinistries error:", e?.message));
+    } else {
+      // In edit mode, just load the ministries without clearing selections
+      loadBranchMinistries(selectedBranchId)
+        .catch((e) => console.warn("loadBranchMinistries error:", e?.message));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranchId]);
 
@@ -374,23 +585,159 @@ export default function BishopEvents() {
   const filteredOneTime = useMemo(() => events, [events]);
   const filteredSeries = useMemo(() => series, [series]);
 
-  async function approveOneTimeEvent(eventId) {
-    try {
-      setEvents((prev) => prev.map((e) => (e.event_id === eventId ? { ...e, status: "Approved" } : e)));
-      const { error } = await supabase.from("events").update({ status: "Approved" }).eq("event_id", eventId);
-      if (error) throw error;
-    } catch (err) {
-      console.warn("approveOneTimeEvent error", err?.message);
-    }
+  function openView(kind, item) {
+    setViewKind(kind);
+    setViewItem(item);
+    setShowView(true);
   }
 
-  async function approveSeries(seriesId) {
+  async function startEdit(kind, item) {
+    setIsEditMode(true);
+    setEditKind(kind);
+    setEditId(kind === "event" ? item.event_id : item.series_id);
+
+    // fill common fields
+    setNewEvent({
+      title: item.title || "",
+      event_type: item.event_type || "",
+      description: item.description || "",
+      location: item.location || "",
+      date: kind === "event" ? String(item.start_datetime || "").slice(0, 10) : "",
+      start_time: kind === "event" ? String(item.start_datetime || "").slice(11, 16) : "",
+      end_time: kind === "event" ? String(item.end_datetime || "").slice(11, 16) : "",
+      est_cost: item.est_cost ?? "",
+    });
+
+    setVisibility(item.is_open_for_all ? "open" : "selected");
+    
+    // Preserve existing image
+    setExistingImagePath(item.cover_image_path || "");
+    setImageFile(null);
+    
+    // Load branch and audiences together to avoid race condition
+    const branchId = item.branch_id ? String(item.branch_id) : "";
+    
     try {
-      setSeries((prev) => prev.map((s) => (s.series_id === seriesId ? { ...s, status: "Approved" } : s)));
-      const { error } = await supabase.from("event_series").update({ status: "Approved" }).eq("series_id", seriesId);
-      if (error) throw error;
-    } catch (err) {
-      console.warn("approveSeries error", err?.message);
+      // Load branch ministries first
+      if (branchId) {
+        await loadBranchMinistries(branchId);
+      }
+      
+      // Then load and set audiences
+      if (kind === "event") {
+        const { data, error } = await supabase
+          .from("event_audiences")
+          .select("branch_ministry_id")
+          .eq("event_id", item.event_id);
+        
+        if (!error && data) {
+          setSelectedBranchId(branchId);
+          setSelectedBranchMinistryIds(data.map(a => String(a.branch_ministry_id)));
+        } else {
+          setSelectedBranchId(branchId);
+          setSelectedBranchMinistryIds([]);
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("event_series_audiences")
+          .select("branch_ministry_id")
+          .eq("series_id", item.series_id);
+        
+        if (!error && data) {
+          setSelectedBranchId(branchId);
+          setSelectedBranchMinistryIds(data.map(a => String(a.branch_ministry_id)));
+        } else {
+          setSelectedBranchId(branchId);
+          setSelectedBranchMinistryIds([]);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load audiences:", e?.message);
+      setSelectedBranchId(branchId);
+      setSelectedBranchMinistryIds([]);
+    }
+
+    if (kind === "series") {
+      setIsRecurring(true);
+      
+      // Parse the RRULE text and populate recurring state
+      const parsedRRule = parseRRuleText(item.rrule_text || "");
+      
+      setRecurring({
+        starts_on: item.starts_on || "",
+        ends_on: item.ends_on || "",
+        start_time: item.start_time || "",
+        end_time: item.end_time || "",
+        freq: parsedRRule.freq,
+        interval: parsedRRule.interval,
+        byday: parsedRRule.byday,
+        monthly_mode: parsedRRule.monthly_mode,
+        bymonthday: parsedRRule.bymonthday,
+        bysetpos: parsedRRule.bysetpos,
+        monthly_byday: parsedRRule.monthly_byday,
+        bymonth: parsedRRule.bymonth,
+        bymonthday_yearly: parsedRRule.bymonthday_yearly,
+      });
+    } else {
+      // For one-time events, pre-populate recurring state with event's date/time
+      // so if user toggles to recurring, the data is already there
+      setIsRecurring(false);
+      const eventDate = String(item.start_datetime || "").slice(0, 10);
+      const eventStartTime = String(item.start_datetime || "").slice(11, 16);
+      const eventEndTime = String(item.end_datetime || "").slice(11, 16);
+      
+      setRecurring({
+        starts_on: eventDate || "",
+        ends_on: "",
+        start_time: eventStartTime || "",
+        end_time: eventEndTime || "",
+        freq: "WEEKLY",
+        interval: 1,
+        byday: ["SU"],
+        monthly_mode: "BYMONTHDAY",
+        bymonthday: 1,
+        bysetpos: 1,
+        monthly_byday: "SU",
+        bymonth: 1,
+        bymonthday_yearly: 1,
+      });
+    }
+
+    setShowCreate(true);
+    setCreateStep(0);
+  }
+
+  async function deleteItem(kind, item) {
+    const ok = window.confirm(`Delete this ${kind === "event" ? "event" : "recurring schedule"}?`);
+    if (!ok) return;
+
+    try {
+      // delete audiences first
+      if (kind === "event") {
+        await supabase.from("event_audiences").delete().eq("event_id", item.event_id);
+      } else {
+        await supabase.from("event_series_audiences").delete().eq("series_id", item.series_id);
+      }
+
+      // remove storage file (optional)
+      const path = item.cover_image_path;
+      if (path) {
+        await supabase.storage.from(BUCKET).remove([path]);
+      }
+
+      // delete main row
+      if (kind === "event") {
+        const { error } = await supabase.from("events").delete().eq("event_id", item.event_id);
+        if (error) throw error;
+        await loadOneTimeEventsAndAudiences();
+      } else {
+        const { error } = await supabase.from("event_series").delete().eq("series_id", item.series_id);
+        if (error) throw error;
+        await loadSeriesAndAudiences();
+      }
+    } catch (e) {
+      console.warn("Delete failed:", e?.message);
+      alert(e?.message || "Delete failed.");
     }
   }
 
@@ -427,7 +774,8 @@ export default function BishopEvents() {
     if (!newEvent.event_type) return "Event type is required.";
     if (!newEvent.location) return "Location is required.";
     if (!newEvent.est_cost) return "Estimated cost is required.";
-    if (!imageFile) return "Event picture is required.";
+    if (!isEditMode && !imageFile) return "Event picture is required.";
+    if (isEditMode && !imageFile && !existingImagePath) return "Event picture is required.";
 
     if (visibility === "selected") {
       if (!selectedBranchId) return "Please select a branch.";
@@ -446,19 +794,37 @@ export default function BishopEvents() {
     }
 
     // recurring validation
-    if (!recurring.starts_on) return "Recurring start date (Starts On) is required.";
-    if (!recurring.start_time) return "Recurring start time is required.";
-    if (!recurring.end_time) return "Recurring end time is required.";
+      if (!recurring.starts_on) return "Recurring start date (Starts On) is required.";
+      if (!recurring.start_time) return "Recurring start time is required.";
+      if (!recurring.end_time) return "Recurring end time is required.";
 
-    const st = toTimeHHMM(recurring.start_time);
-    const et = toTimeHHMM(recurring.end_time);
-    if (!(et > st)) return "Recurring end time must be later than start time.";
+      const st = toTimeHHMM(recurring.start_time);
+      const et = toTimeHHMM(recurring.end_time);
+      if (!(et > st)) return "Recurring end time must be later than start time.";
 
-    if (!recurring.every_week) {
-      if (!Array.isArray(recurring.week_of_month) || !recurring.week_of_month.length) {
-        return "Choose at least one week of month (e.g., 1st/2nd/3rd).";
+      if (recurring.freq === "WEEKLY") {
+        if (!Array.isArray(recurring.byday) || recurring.byday.length === 0) {
+          return "Select at least one day for weekly recurrence.";
+        }
       }
-    }
+
+      if (recurring.freq === "MONTHLY") {
+        if (recurring.monthly_mode === "BYMONTHDAY") {
+          const d = Number(recurring.bymonthday);
+          if (!(d >= 1 && d <= 31)) return "Monthly day must be 1-31.";
+        } else {
+          if (!recurring.monthly_byday) return "Select a weekday for monthly recurrence.";
+          const n = Number(recurring.bysetpos);
+          if (!([-1,1,2,3,4,5].includes(n))) return "Monthly week must be 1-5 or Last.";
+        }
+      }
+
+      if (recurring.freq === "YEARLY") {
+        const m = Number(recurring.bymonth);
+        const d = Number(recurring.bymonthday_yearly);
+        if (!(m >= 1 && m <= 12)) return "Yearly month must be 1-12.";
+        if (!(d >= 1 && d <= 31)) return "Yearly day must be 1-31.";
+      }
 
     return "";
   }
@@ -473,6 +839,7 @@ export default function BishopEvents() {
 
     try {
       const me = await getCurrentUserMerged();
+      const isUpdating = Boolean(isEditMode && editId && editKind);
 
       // =========================
       // ONE-TIME EVENT -> events
@@ -480,6 +847,55 @@ export default function BishopEvents() {
       if (!isRecurring) {
         const start = isoLocalFromDateTime(newEvent.date, newEvent.start_time);
         const end = isoLocalFromDateTime(newEvent.date, newEvent.end_time);
+
+        // UPDATE MODE (one-time event)
+        if (isUpdating && editKind === "event") {
+          const updatePayload = {
+            branch_id: visibility === "selected" ? Number(selectedBranchId) : null,
+            title: newEvent.title,
+            description: newEvent.description || null,
+            event_type: newEvent.event_type,
+            location: newEvent.location,
+            start_datetime: start.toISOString(),
+            end_datetime: end.toISOString(),
+            is_open_for_all: visibility === "open",
+            est_cost: Number(newEvent.est_cost),
+          };
+
+          const { error } = await supabase.from("events").update(updatePayload).eq("event_id", editId);
+          if (error) throw error;
+
+          // image optional on edit (do NOT require it)
+          if (imageFile) {
+            const imagePath = await uploadImageToEvent(editId);
+            const { error: imgErr } = await supabase
+              .from("events")
+              .update({ cover_image_path: imagePath })
+              .eq("event_id", editId);
+            if (imgErr) throw imgErr;
+          }
+
+          // audiences reset + reinsert
+          await supabase.from("event_audiences").delete().eq("event_id", editId);
+          if (visibility === "selected") {
+            const rows = selectedBranchMinistryIds.map((bmId) => ({
+              event_id: editId,
+              branch_ministry_id: Number(bmId),
+            }));
+            if (rows.length) {
+              const { error: audErr } = await supabase.from("event_audiences").insert(rows);
+              if (audErr) throw audErr;
+            }
+          }
+
+          setIsEditMode(false);
+          setEditKind(null);
+          setEditId(null);
+
+          closeAndResetForm();
+          await loadOneTimeEventsAndAudiences();
+          return;
+        }
 
         const payload = {
           branch_id: visibility === "selected" ? Number(selectedBranchId) : null,
@@ -533,7 +949,51 @@ export default function BishopEvents() {
       // =========================
       // RECURRING -> event_series only
       // =========================
-      const weekArr = recurring.every_week ? null : recurring.week_of_month.map(Number);
+      
+      // UPDATE MODE
+      if (isUpdating && editKind === "series") {
+        const updatePayload = {
+          title: newEvent.title,
+          description: newEvent.description || null,
+          event_type: newEvent.event_type,
+          location: newEvent.location,
+          is_open_for_all: visibility === "open",
+          branch_id: visibility === "selected" ? Number(selectedBranchId) : null,
+
+          rrule_text: buildRRuleText(recurring),
+          start_time: toTimeHHMM(recurring.start_time),
+          end_time: toTimeHHMM(recurring.end_time),
+          starts_on: recurring.starts_on,
+          ends_on: recurring.ends_on || null,
+
+          est_cost: Number(newEvent.est_cost),
+        };
+
+        const { error } = await supabase.from("event_series").update(updatePayload).eq("series_id", editId);
+        if (error) throw error;
+
+        if (imageFile) {
+          const imagePath = await uploadImageToSeries(editId);
+          await supabase.from("event_series").update({ cover_image_path: imagePath }).eq("series_id", editId);
+        }
+
+        await supabase.from("event_series_audiences").delete().eq("series_id", editId);
+        if (visibility === "selected") {
+          const rows = selectedBranchMinistryIds.map((bmId) => ({
+            series_id: editId,
+            branch_ministry_id: Number(bmId),
+          }));
+          if (rows.length) await supabase.from("event_series_audiences").insert(rows);
+        }
+
+        setIsEditMode(false);
+        setEditKind(null);
+        setEditId(null);
+
+        closeAndResetForm();
+        await loadSeriesAndAudiences();
+        return;
+      }
 
       const seriesPayload = {
         title: newEvent.title,
@@ -544,8 +1004,7 @@ export default function BishopEvents() {
         is_open_for_all: visibility === "open",
         branch_id: visibility === "selected" ? Number(selectedBranchId) : null,
 
-        day_of_week: Number(recurring.day_of_week),
-        week_of_month: weekArr,
+        rrule_text: buildRRuleText(recurring),
 
         start_time: toTimeHHMM(recurring.start_time),
         end_time: toTimeHHMM(recurring.end_time),
@@ -605,16 +1064,23 @@ export default function BishopEvents() {
     setSelectedBranchId("");
     setSelectedBranchMinistryIds([]);
     setImageFile(null);
+    setExistingImagePath("");
 
     setIsRecurring(false);
     setRecurring({
       starts_on: "",
       ends_on: "",
-      day_of_week: 0,
-      every_week: true,
-      week_of_month: [1, 2, 3],
       start_time: "",
       end_time: "",
+      freq: "WEEKLY",
+      interval: 1,
+      byday: ["SU"],
+      monthly_mode: "BYMONTHDAY",
+      bymonthday: 1,
+      bysetpos: 1,
+      monthly_byday: "SU",
+      bymonth: 1,
+      bymonthday_yearly: 1,
     });
 
     setNewEvent({
@@ -658,7 +1124,12 @@ export default function BishopEvents() {
 
               <button
                 className="inline-flex items-center gap-1 bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700"
-                onClick={() => setShowCreate(true)}
+                onClick={() => {
+                  setIsEditMode(false);
+                  setEditKind(null);
+                  setEditId(null);
+                  setShowCreate(true);
+                }}
               >
                 <Plus size={16} /> Create Event
               </button>
@@ -708,7 +1179,7 @@ export default function BishopEvents() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-gray-700">
-                            {new Date(e.start_datetime).toLocaleString()}
+                            {formatDateTime12Hour(e.start_datetime)}
                           </td>
                           <td className="px-4 py-3 text-gray-900 font-semibold">{e.title}</td>
                           <td className="px-4 py-3 text-gray-700">
@@ -733,11 +1204,10 @@ export default function BishopEvents() {
                           <td className="px-4 py-3 text-gray-700">{e.status}</td>
                           <td className="px-4 py-3">
                             <button
-                              className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1 rounded-md hover:bg-emerald-700 disabled:opacity-50"
-                              onClick={() => approveOneTimeEvent(e.event_id)}
-                              disabled={String(e.status).toLowerCase() === "approved"}
+                              className="px-3 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+                              onClick={() => openView("event", e)}
                             >
-                              <CheckCircle2 size={16} /> Approve
+                              View
                             </button>
                           </td>
                         </tr>
@@ -808,8 +1278,8 @@ export default function BishopEvents() {
 
                           <td className="px-4 py-3 text-gray-900 font-semibold">{s.title}</td>
 
-                          <td className="px-4 py-3 text-gray-700">{s.starts_on}</td>
-                          <td className="px-4 py-3 text-gray-700">{s.ends_on || "-"}</td>
+                          <td className="px-4 py-3 text-gray-700">{formatDate(s.starts_on)}</td>
+                          <td className="px-4 py-3 text-gray-700">{s.ends_on ? formatDate(s.ends_on) : "-"}</td>
 
                           <td className="px-4 py-3 text-gray-700">
                             {s.is_open_for_all ? "Open for all" : "Selected"}
@@ -848,11 +1318,10 @@ export default function BishopEvents() {
 
                           <td className="px-4 py-3">
                             <button
-                              className="inline-flex items-center gap-1 bg-emerald-600 text-white px-3 py-1 rounded-md hover:bg-emerald-700 disabled:opacity-50"
-                              onClick={() => approveSeries(s.series_id)}
-                              disabled={String(s.status).toLowerCase() === "approved"}
+                              className="px-3 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+                              onClick={() => openView("series", s)}
                             >
-                              <CheckCircle2 size={16} /> Approve
+                              View
                             </button>
                           </td>
                         </tr>
@@ -881,7 +1350,7 @@ export default function BishopEvents() {
             <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 space-y-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <h2 className="text-lg font-semibold text-gray-900">Create New Event</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">{isEditMode ? "Edit Event" : "Create New Event"}</h2>
                   <button className="ml-auto text-gray-500" onClick={closeAndResetForm}>
                     Close
                   </button>
@@ -987,6 +1456,7 @@ export default function BishopEvents() {
                     {/* RECURRING FIELDS */}
                     {isRecurring && (
                       <div className="space-y-3 border rounded-md p-3">
+                        {/* dates */}
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <div className="text-xs font-semibold text-gray-700">Starts On</div>
@@ -1008,36 +1478,40 @@ export default function BishopEvents() {
                           </div>
                         </div>
 
+                        {/* freq + interval */}
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
-                            <div className="text-xs font-semibold text-gray-700">Day of Week</div>
+                            <div className="text-xs font-semibold text-gray-700">Repeats</div>
                             <select
                               className="w-full border rounded-md px-3 py-2 text-sm"
-                              value={recurring.day_of_week}
+                              value={recurring.freq}
                               onChange={(e) =>
-                                setRecurring({ ...recurring, day_of_week: Number(e.target.value) })
+                                setRecurring((prev) => ({
+                                  ...prev,
+                                  freq: e.target.value,
+                                  byday: prev.byday?.length ? prev.byday : ["SU"],
+                                }))
                               }
                             >
-                              <option value={0}>Sunday</option>
-                              <option value={1}>Monday</option>
-                              <option value={2}>Tuesday</option>
-                              <option value={3}>Wednesday</option>
-                              <option value={4}>Thursday</option>
-                              <option value={5}>Friday</option>
-                              <option value={6}>Saturday</option>
+                              <option value="WEEKLY">Weekly</option>
+                              <option value="MONTHLY">Monthly</option>
+                              <option value="YEARLY">Yearly</option>
                             </select>
                           </div>
 
                           <div className="space-y-1">
-                            <div className="text-xs font-semibold text-gray-700">Rule</div>
-                            <div className="text-xs text-gray-600 border rounded-md px-3 py-2">
-                              {recurring.every_week
-                                ? "Every week"
-                                : `Weeks: ${recurring.week_of_month.join(", ")}`}
-                            </div>
+                            <div className="text-xs font-semibold text-gray-700">Interval</div>
+                            <input
+                              type="number"
+                              min="1"
+                              className="w-full border rounded-md px-3 py-2 text-sm"
+                              value={recurring.interval}
+                              onChange={(e) => setRecurring({ ...recurring, interval: Number(e.target.value || 1) })}
+                            />
                           </div>
                         </div>
 
+                        {/* time */}
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <div className="text-xs font-semibold text-gray-700">Start Time</div>
@@ -1059,58 +1533,168 @@ export default function BishopEvents() {
                           </div>
                         </div>
 
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={recurring.every_week}
-                            onChange={(e) => setRecurring({ ...recurring, every_week: e.target.checked })}
-                          />
-                          Every week
-                        </label>
-
-                        {!recurring.every_week && (
+                        {/* WEEKLY: multiple days */}
+                        {recurring.freq === "WEEKLY" && (
                           <div className="space-y-2">
-                            <div className="text-xs font-semibold text-gray-700">
-                              Weeks of Month (for Sunday: 1st/2nd/3rd)
-                            </div>
+                            <div className="text-xs font-semibold text-gray-700">Days of Week</div>
                             <div className="flex flex-wrap gap-3 text-sm">
-                              {[1, 2, 3, 4, 5].map((n) => {
-                                const checked = recurring.week_of_month.includes(n);
+                              {RR_DAYS.map((d) => {
+                                const checked = (recurring.byday || []).includes(d.val);
                                 return (
-                                  <label key={n} className="flex items-center gap-2">
+                                  <label key={d.val} className="flex items-center gap-2">
                                     <input
                                       type="checkbox"
                                       checked={checked}
                                       onChange={() => {
                                         setRecurring((prev) => {
-                                          const arr = new Set(prev.week_of_month);
-                                          if (arr.has(n)) arr.delete(n);
-                                          else arr.add(n);
-                                          return {
-                                            ...prev,
-                                            week_of_month: Array.from(arr).sort((a, b) => a - b),
-                                          };
+                                          const set = new Set(prev.byday || []);
+                                          if (set.has(d.val)) set.delete(d.val);
+                                          else set.add(d.val);
+                                          const arr = Array.from(set);
+                                          return { ...prev, byday: arr.length ? arr : ["SU"] };
                                         });
                                       }}
                                     />
-                                    {ord(n)}
+                                    {d.label}
                                   </label>
                                 );
                               })}
                             </div>
                           </div>
                         )}
+
+                        {/* MONTHLY */}
+                        {recurring.freq === "MONTHLY" && (
+                          <div className="space-y-2">
+                            <div className="text-xs font-semibold text-gray-700">Monthly Pattern</div>
+
+                            <div className="flex gap-4 text-sm">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="monthly_mode"
+                                  checked={recurring.monthly_mode === "BYMONTHDAY"}
+                                  onChange={() => setRecurring({ ...recurring, monthly_mode: "BYMONTHDAY" })}
+                                />
+                                On day #
+                              </label>
+
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="monthly_mode"
+                                  checked={recurring.monthly_mode === "BYSETPOS"}
+                                  onChange={() => setRecurring({ ...recurring, monthly_mode: "BYSETPOS" })}
+                                />
+                                On nth weekday
+                              </label>
+                            </div>
+
+                            {recurring.monthly_mode === "BYMONTHDAY" ? (
+                              <div className="space-y-1">
+                                <div className="text-xs font-semibold text-gray-700">Day of month (1-31)</div>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="31"
+                                  className="w-full border rounded-md px-3 py-2 text-sm"
+                                  value={recurring.bymonthday}
+                                  onChange={(e) => setRecurring({ ...recurring, bymonthday: Number(e.target.value || 1) })}
+                                />
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <div className="text-xs font-semibold text-gray-700">Week</div>
+                                  <select
+                                    className="w-full border rounded-md px-3 py-2 text-sm"
+                                    value={recurring.bysetpos}
+                                    onChange={(e) => setRecurring({ ...recurring, bysetpos: Number(e.target.value) })}
+                                  >
+                                    <option value={1}>1st</option>
+                                    <option value={2}>2nd</option>
+                                    <option value={3}>3rd</option>
+                                    <option value={4}>4th</option>
+                                    <option value={5}>5th</option>
+                                    <option value={-1}>Last</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <div className="text-xs font-semibold text-gray-700">Weekday</div>
+                                  <select
+                                    className="w-full border rounded-md px-3 py-2 text-sm"
+                                    value={recurring.monthly_byday}
+                                    onChange={(e) => setRecurring({ ...recurring, monthly_byday: e.target.value })}
+                                  >
+                                    {RR_DAYS.map((d) => (
+                                      <option key={d.val} value={d.val}>{d.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* YEARLY */}
+                        {recurring.freq === "YEARLY" && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <div className="text-xs font-semibold text-gray-700">Month (1-12)</div>
+                              <input
+                                type="number"
+                                min="1"
+                                max="12"
+                                className="w-full border rounded-md px-3 py-2 text-sm"
+                                value={recurring.bymonth}
+                                onChange={(e) => setRecurring({ ...recurring, bymonth: Number(e.target.value || 1) })}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-xs font-semibold text-gray-700">Day (1-31)</div>
+                              <input
+                                type="number"
+                                min="1"
+                                max="31"
+                                className="w-full border rounded-md px-3 py-2 text-sm"
+                                value={recurring.bymonthday_yearly}
+                                onChange={(e) => setRecurring({ ...recurring, bymonthday_yearly: Number(e.target.value || 1) })}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-600 border rounded-md px-3 py-2">
+                          <b>RRULE Preview:</b> {buildRRuleText(recurring)}
+                        </div>
                       </div>
                     )}
 
                     <div className="space-y-1">
                       <div className="text-sm font-medium text-gray-800">Event Picture</div>
+                      
+                      {existingImagePath && !imageFile && (
+                        <div className="mb-2">
+                          <img
+                            src={publicUrlFromPath(existingImagePath)}
+                            alt="Current event picture"
+                            className="h-32 w-full object-cover rounded-md border"
+                          />
+                          <div className="text-xs text-gray-600 mt-1">Current picture (choose a new file to replace)</div>
+                        </div>
+                      )}
+                      
                       <input
                         type="file"
                         accept="image/*"
                         className="w-full text-sm"
                         onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                       />
+                      
+                      {imageFile && (
+                        <div className="text-xs text-green-600">New image selected: {imageFile.name}</div>
+                      )}
+                      
                       <div className="text-xs text-gray-500">
                         Stored in bucket: <b>{BUCKET}</b>
                       </div>
@@ -1223,14 +1807,8 @@ export default function BishopEvents() {
                         <div className="text-xs text-gray-700 space-y-1">
                           <div><b>Starts:</b> {recurring.starts_on}</div>
                           <div><b>Ends:</b> {recurring.ends_on || "(none)"}</div>
-                          <div><b>Day:</b> {dowLabel(recurring.day_of_week)}</div>
                           <div><b>Time:</b> {recurring.start_time} - {recurring.end_time}</div>
-                          <div>
-                            <b>Rule:</b>{" "}
-                            {recurring.every_week
-                              ? "Every week"
-                              : `Weeks ${recurring.week_of_month.join(", ")} of the month`}
-                          </div>
+                          <div><b>RRULE:</b> {buildRRuleText(recurring)}</div>
                         </div>
                       )}
 
@@ -1276,9 +1854,82 @@ export default function BishopEvents() {
                       className="px-3 py-2 text-sm bg-emerald-600 text-white rounded-md"
                       onClick={handleCreateEvent}
                     >
-                      Create Event
+                      {isEditMode ? "Save Changes" : "Create Event"}
                     </button>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW DETAILS MODAL */}
+          {showView && viewItem && (
+            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 space-y-4">
+                <div className="flex items-center">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {viewKind === "event" ? "Event Details" : "Recurring Schedule Details"}
+                  </h2>
+                  <button className="ml-auto text-gray-500" onClick={() => setShowView(false)}>
+                    Close
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-1">
+                    {viewItem.cover_image_url ? (
+                      <img src={viewItem.cover_image_url} alt={viewItem.title} className="w-full h-36 object-cover rounded-md border" />
+                    ) : (
+                      <div className="w-full h-36 rounded-md bg-gray-100 border" />
+                    )}
+                  </div>
+
+                  <div className="col-span-2 space-y-2 text-sm">
+                    <div><b>Title:</b> {viewItem.title}</div>
+                    <div><b>Type:</b> {viewItem.event_type}</div>
+                    <div><b>Location:</b> {viewItem.location}</div>
+                    <div><b>Estimated Cost:</b> ₱{Number(viewItem.est_cost || 0).toLocaleString()}</div>
+                    <div><b>Visibility:</b> {viewItem.is_open_for_all ? "Open for all" : "Selected"}</div>
+
+                    {viewKind === "event" ? (
+                      <div>
+                        <b>Schedule:</b>{" "}
+                        {formatDateTime12Hour(viewItem.start_datetime)} – {formatDateTime12Hour(viewItem.end_datetime)}
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div><b>Starts:</b> {formatDate(viewItem.starts_on)}</div>
+                        <div><b>Ends:</b> {viewItem.ends_on ? formatDate(viewItem.ends_on) : "-"}</div>
+                        <div><b>Time:</b> {viewItem.start_time} – {viewItem.end_time}</div>
+                        <div><b>RRULE:</b> {formatRRuleReadable(viewItem.rrule_text)}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-sm">
+                  <b>Description:</b>
+                  <div className="mt-1 text-gray-700 whitespace-pre-wrap">
+                    {viewItem.description || "-"}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md"
+                    onClick={() => {
+                      setShowView(false);
+                      startEdit(viewKind, viewItem);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="px-3 py-2 text-sm bg-red-600 text-white rounded-md"
+                    onClick={() => deleteItem(viewKind, viewItem)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
