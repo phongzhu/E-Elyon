@@ -22,6 +22,8 @@ import BishopTasks from "./pages/bishop/Tasks";
 import BishopAnalytics from "./pages/bishop/Analytics";
 import BishopCounseling from "./pages/bishop/Counseling";
 import Ministries from "./pages/bishop/Ministries";
+import ManageMinistryActivity from "./pages/bishop/Manage_Ministry_Activity";
+
 import RequireBishop from "./routes/RequireBishop";
 import FinanceDashboard from "./pages/finance/FinanceDashboard";
 import FinanceFunds from "./pages/finance/Funds";
@@ -39,7 +41,17 @@ import Finance from "./pages/pastor/Finance";
 import Tasks from "./pages/pastor/Tasks";
 import Counseling from "./pages/pastor/Counseling";
 import UserManagement from "./pages/pastor/UserManagement";
+import PastorMinistries from "./pages/pastor/Ministries";
 import RequirePastor from "./routes/requirePastor";
+import MinistryApply from "./pages/member/MinistryApply";
+<Route
+  path="/bishop/manage-ministry-activity"
+  element={
+    <RequireBishop>
+      <ManageMinistryActivity />
+    </RequireBishop>
+  }
+/>;
 
 function App() {
   return (
@@ -120,7 +132,7 @@ function App() {
             }
           />
 
-        <Route
+          <Route
             path="/audit_log"
             element={
               <RequireAdmin>
@@ -140,18 +152,21 @@ function App() {
           />
 
           {/* 🌟 Profile Page */}
-         <Route
-              path="/profile"
-              element={
-                <RequireAdmin>
-                  <Profile />
-                </RequireAdmin>
-              }
-            />
+          <Route
+            path="/profile"
+            element={
+              <RequireAdmin>
+                <Profile />
+              </RequireAdmin>
+            }
+          />
 
           {/* 🌟 Account Management */}
           {/* Temporary public preview route (no auth) - remove when finished testing */}
-          <Route path="/account-management-preview" element={<AccountManagement />} />
+          <Route
+            path="/account-management-preview"
+            element={<AccountManagement />}
+          />
           <Route
             path="/admin/account-management"
             element={
@@ -161,7 +176,6 @@ function App() {
             }
           />
 
-
           {/* 🌟 Role-Based Dashboards */}
           {/* Bishop */}
           <Route path="/bishop" element={<BishopDashboard />} />
@@ -169,21 +183,92 @@ function App() {
           <Route path="/bishop/roles" element={<BishopUserRoles />} />
           <Route path="/bishop/membership" element={<BishopMembership />} />
           <Route path="/bishop/events" element={<BishopEvents />} />
-          <Route path="/bishop/ministries" element={<RequireBishop><Ministries /></RequireBishop>} />
+          <Route
+            path="/bishop/ministries"
+            element={
+              <RequireBishop>
+                <Ministries />
+              </RequireBishop>
+            }
+          />
           <Route path="/bishop/finance" element={<BishopFinance />} />
           <Route path="/bishop/tasks" element={<BishopTasks />} />
           <Route path="/bishop/analytics" element={<BishopAnalytics />} />
           <Route path="/bishop/counseling" element={<BishopCounseling />} />
 
           {/* Pastor */}
-          <Route path="/pastor" element={<RequirePastor><PastorDashboard /></RequirePastor>} />
-          <Route path="/pastor/dashboard" element={<RequirePastor><PastorDashboard /></RequirePastor>} />
-          <Route path="/pastor/membership" element={<RequirePastor><Membership /></RequirePastor>} />
-          <Route path="/pastor/events" element={<RequirePastor><Events /></RequirePastor>} />
-          <Route path="/pastor/finance" element={<RequirePastor><Finance /></RequirePastor>} />
-          <Route path="/pastor/tasks" element={<RequirePastor><Tasks /></RequirePastor>} />
-          <Route path="/pastor/counseling" element={<RequirePastor><Counseling /></RequirePastor>} />
-          <Route path="/pastor/user-management" element={<RequirePastor><UserManagement /></RequirePastor>} />
+          <Route
+            path="/pastor"
+            element={
+              <RequirePastor>
+                <PastorDashboard />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/dashboard"
+            element={
+              <RequirePastor>
+                <PastorDashboard />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/membership"
+            element={
+              <RequirePastor>
+                <Membership />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/events"
+            element={
+              <RequirePastor>
+                <Events />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/ministries"
+            element={
+              <RequirePastor>
+                <PastorMinistries />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/finance"
+            element={
+              <RequirePastor>
+                <Finance />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/tasks"
+            element={
+              <RequirePastor>
+                <Tasks />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/counseling"
+            element={
+              <RequirePastor>
+                <Counseling />
+              </RequirePastor>
+            }
+          />
+          <Route
+            path="/pastor/user-management"
+            element={
+              <RequirePastor>
+                <UserManagement />
+              </RequirePastor>
+            }
+          />
 
           {/* Finance */}
           <Route path="/finance" element={<FinanceDashboard />} />
@@ -198,6 +283,12 @@ function App() {
           <Route path="/staff/dashboard" element={<StaffDashboard />} />
           <Route path="/staff/tasks" element={<StaffTasks />} />
           <Route path="/ceo" element={<CEODashboard />} />
+
+          {/* Member (application screens) */}
+          <Route
+            path="/member/ministries/apply/:branchMinistryId"
+            element={<MinistryApply />}
+          />
 
           {/* Optional redirect for uppercase */}
           <Route path="/Profile" element={<Navigate to="/profile" replace />} />

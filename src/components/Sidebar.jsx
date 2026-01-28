@@ -67,44 +67,137 @@ export default function Sidebar() {
   const menuConfig = {
     admin: [
       { path: "/admin/dashboard", name: "Home", icon: <Home size={20} /> },
-      { path: "/admin/users", name: "User and Role Management", icon: <Users size={20} /> },
-      { path: "/admin/backup", name: "Database Settings", icon: <Database size={20} /> },
-      { path: "/admin/audit", name: "Audit Trail", icon: <FileText size={20} /> },
-      { path: "/branding", name: "System Configuration", icon: <Settings size={20} /> },
+      {
+        path: "/admin/users",
+        name: "User and Role Management",
+        icon: <Users size={20} />,
+      },
+      {
+        path: "/admin/backup",
+        name: "Database Settings",
+        icon: <Database size={20} />,
+      },
+      {
+        path: "/admin/audit",
+        name: "Audit Trail",
+        icon: <FileText size={20} />,
+      },
+      {
+        path: "/branding",
+        name: "System Configuration",
+        icon: <Settings size={20} />,
+      },
     ],
     bishop: [
       { path: "/bishop/dashboard", name: "Home", icon: <Home size={20} /> },
-      { path: "/bishop/roles", name: "User and Role Management", icon: <UserCog size={20} /> },
-      { path: "/bishop/membership", name: "Attendance and Membership", icon: <Users2 size={20} /> },
-      { path: "/bishop/events", name: "Activity and Events", icon: <Calendar size={20} /> },
-      { path: "/bishop/ministries", name: "Manage Ministries", icon: <Briefcase size={20} /> },
-      { path: "/bishop/finance", name: "Finance Oversight", icon: <DollarSign size={20} /> },
-      { path: "/bishop/analytics", name: "Reports and Analytics", icon: <PieChart size={20} /> },
-      { path: "/bishop/counseling", name: "Counseling/Prayer Request", icon: <MessageSquare size={20} /> },
+      {
+        path: "/bishop/roles",
+        name: "User and Role Management",
+        icon: <UserCog size={20} />,
+      },
+      {
+        path: "/bishop/membership",
+        name: "Attendance and Membership",
+        icon: <Users2 size={20} />,
+      },
+      {
+        path: "/bishop/events",
+        name: "Activity and Events",
+        icon: <Calendar size={20} />,
+      },
+      {
+        name: "Manage Ministries",
+        icon: <Briefcase size={20} />,
+        dropdown: [
+          { path: "/bishop/ministries", name: "Ministries" },
+          {
+            path: "/bishop/manage-ministry-activity",
+            name: "Manage Ministry Activity",
+          },
+        ],
+      },
+      {
+        path: "/bishop/finance",
+        name: "Finance Oversight",
+        icon: <DollarSign size={20} />,
+      },
+      {
+        path: "/bishop/analytics",
+        name: "Reports and Analytics",
+        icon: <PieChart size={20} />,
+      },
+      {
+        path: "/bishop/counseling",
+        name: "Counseling/Prayer Request",
+        icon: <MessageSquare size={20} />,
+      },
     ],
     pastor: [
       { path: "/pastor/dashboard", name: "Home", icon: <Home size={20} /> },
-      { path: "/pastor/membership", name: "Attendance and Membership", icon: <Users2 size={20} /> },
-      { path: "/pastor/events", name: "Activity and Events", icon: <Calendar size={20} /> },
-      { path: "/pastor/finance", name: "Finance Overview", icon: <DollarSign size={20} /> },
-      { path: "/pastor/tasks", name: "My Tasks", icon: <ClipboardList size={20} /> },
-      { path: "/pastor/user-management", name: "User Management", icon: <UserCog size={20} /> },
-      { path: "/pastor/counseling", name: "Counseling/Prayer Request", icon: <MessageSquare size={20} /> },
+      {
+        path: "/pastor/membership",
+        name: "Attendance and Membership",
+        icon: <Users2 size={20} />,
+      },
+      {
+        path: "/pastor/events",
+        name: "Activity and Events",
+        icon: <Calendar size={20} />,
+      },
+      {
+        path: "/pastor/ministries",
+        name: "Manage Ministries",
+        icon: <Briefcase size={20} />,
+      },
+      {
+        path: "/pastor/finance",
+        name: "Finance Overview",
+        icon: <DollarSign size={20} />,
+      },
+      {
+        path: "/pastor/tasks",
+        name: "My Tasks",
+        icon: <ClipboardList size={20} />,
+      },
+      {
+        path: "/pastor/user-management",
+        name: "User Management",
+        icon: <UserCog size={20} />,
+      },
+      {
+        path: "/pastor/counseling",
+        name: "Counseling/Prayer Request",
+        icon: <MessageSquare size={20} />,
+      },
     ],
     finance: [
       { path: "/finance/dashboard", name: "Home", icon: <Home size={20} /> },
-      { path: "/finance/funds", name: "Church Fund Management", icon: <Database size={20} /> },
-      { path: "/finance/stipends", name: "Church Stipends", icon: <DollarSign size={20} /> },
-      { path: "/finance/tasks", name: "Assignment Control", icon: <ClipboardList size={20} /> },
-      { path: "/finance/reports", name: "Reports and Analytics", icon: <PieChart size={20} /> },
+      {
+        path: "/finance/funds",
+        name: "Church Fund Management",
+        icon: <Database size={20} />,
+      },
+      {
+        path: "/finance/stipends",
+        name: "Church Stipends",
+        icon: <DollarSign size={20} />,
+      },
+      {
+        path: "/finance/tasks",
+        name: "Assignment Control",
+        icon: <ClipboardList size={20} />,
+      },
+      {
+        path: "/finance/reports",
+        name: "Reports and Analytics",
+        icon: <PieChart size={20} />,
+      },
     ],
     staff: [
       { path: "/staff/dashboard", name: "Home", icon: <Home size={20} /> },
       { path: "/staff/tasks", name: "My Tasks", icon: <FileText size={20} /> },
     ],
-    ceo: [
-      { path: "/ceo", name: "Home", icon: <Home size={20} /> },
-    ],
+    ceo: [{ path: "/ceo", name: "Home", icon: <Home size={20} /> }],
   };
 
   // Resolve items for current role
@@ -128,6 +221,8 @@ export default function Sidebar() {
 
   const menuItems = getMenuItems();
   const roleName = getRoleName();
+  // Dropdown open state for sidebar dropdowns (only one open at a time)
+  const [openDropdown, setOpenDropdown] = useState(null);
   return (
     <aside
       className={`${
@@ -185,26 +280,93 @@ export default function Sidebar() {
         )}
       </div>
 
-
-      
       {/* Menu */}
       <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path);
-
+        {menuItems.map((item, idx) => {
+          if (item.dropdown) {
+            // Check if any dropdown item is active
+            const isActive = item.dropdown.some((d) =>
+              location.pathname.startsWith(d.path)
+            );
+            const isDropdownOpen = openDropdown === idx;
+            return (
+              <div key={item.name} className="mb-1">
+                <button
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all duration-200 group ${
+                    isActive
+                      ? "shadow-lg scale-[1.02] bg-white/10"
+                      : "hover:scale-[1.02] hover:bg-white/5"
+                  }`}
+                  style={{
+                    backgroundColor: isActive ? secondary : "transparent",
+                  }}
+                  onClick={() => setOpenDropdown(isDropdownOpen ? null : idx)}
+                >
+                  <div
+                    className={`transition-transform ${
+                      isActive ? "scale-110" : "group-hover:scale-110"
+                    }`}
+                  >
+                    {item.icon}
+                  </div>
+                  {!collapsed && (
+                    <span className={isActive ? "font-semibold" : ""}>
+                      {item.name}
+                    </span>
+                  )}
+                  <ChevronRight
+                    size={16}
+                    className={`ml-auto transition-transform ${
+                      isDropdownOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+                {isDropdownOpen && !collapsed && (
+                  <div className="ml-8 mt-1 space-y-1">
+                    {item.dropdown.map((d) => (
+                      <button
+                        key={d.path}
+                        className={`block w-full text-left px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                          ${
+                            location.pathname.startsWith(d.path)
+                              ? "bg-white/30 text-white"
+                              : "hover:bg-white/10 text-white/80"
+                          }
+                        `}
+                        onClick={() => navigate(d.path)}
+                        style={{ fontFamily: font }}
+                      >
+                        {d.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          const isActive =
+            location.pathname === item.path ||
+            location.pathname.startsWith(item.path);
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all duration-200 group ${
-                isActive ? "shadow-lg scale-[1.02]" : "hover:scale-[1.02] hover:bg-white/5"
+                isActive
+                  ? "shadow-lg scale-[1.02]"
+                  : "hover:scale-[1.02] hover:bg-white/5"
               }`}
               style={{
                 backgroundColor: isActive ? secondary : "transparent",
               }}
             >
-              <div className={`transition-transform ${isActive ? "scale-110" : "group-hover:scale-110"}`}>{item.icon}</div>
-
+              <div
+                className={`transition-transform ${
+                  isActive ? "scale-110" : "group-hover:scale-110"
+                }`}
+              >
+                {item.icon}
+              </div>
               {!collapsed && (
                 <span className={isActive ? "font-semibold" : ""}>
                   {item.name}
@@ -213,11 +375,7 @@ export default function Sidebar() {
             </button>
           );
         })}
-
-        
       </nav>
-
-     
 
       {/* Footer */}
       <div className="p-4 border-t border-white/10">
@@ -231,7 +389,9 @@ export default function Sidebar() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold">{roleName} User</p>
-              <p className="text-xs opacity-70">{localStorage.getItem("userEmail") || "user@example.com"}</p>
+              <p className="text-xs opacity-70">
+                {localStorage.getItem("userEmail") || "user@example.com"}
+              </p>
             </div>
           </div>
         )}
