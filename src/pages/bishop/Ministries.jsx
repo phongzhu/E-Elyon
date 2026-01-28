@@ -57,6 +57,7 @@ const prettyTypeLabel = (t) => {
       return "Assets / Items";
     case "skill_select":
       return "Skills";
+// CLEANED: Removed merge conflict marker
     case "age_range":
       return "Age Requirement";
     case "family_relation":
@@ -65,6 +66,14 @@ const prettyTypeLabel = (t) => {
       return "Upload";
     case "custom_form":
       return "Form";
+// CLEANED: Removed merge conflict marker
+    case "family_relation":
+      return "Family Requirement";
+    case "custom_form":
+      return "Form";
+    case "demographic":
+      return "Demographic Restriction";
+// CLEANED: Removed merge conflict marker
     default:
       return t || "Requirement";
   }
@@ -100,6 +109,87 @@ const normalizeAnswerJson = (ans) => {
   return { value: ans };
 };
 
+<<<<<<< HEAD
+=======
+const normalizeGender = (v) => {
+  const s = String(v || "").trim().toLowerCase();
+  if (s === "male" || s === "m") return "Male";
+  if (s === "female" || s === "f") return "Female";
+  return null;
+};
+
+const computeAge = (birthdate) => {
+  if (!birthdate) return null;
+  const b = new Date(birthdate);
+  if (isNaN(b.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+  return age;
+};
+
+const passesDemographic = (cfg, applicantProfile) => {
+  const allowedGender = Array.isArray(cfg?.allowed_gender)
+    ? cfg.allowed_gender
+    : [];
+  const bands = Array.isArray(cfg?.age_bands) ? cfg.age_bands : [];
+
+  const g = normalizeGender(applicantProfile?.gender);
+  const age = computeAge(applicantProfile?.birthdate);
+
+  if (allowedGender.length > 0 && (!g || !allowedGender.includes(g)))
+    return false;
+
+  if (bands.length > 0) {
+    if (age == null) return false;
+
+    const ok = bands.some((b) => {
+      const min = b?.min_age == null ? null : Number(b.min_age);
+      const max = b?.max_age == null ? null : Number(b.max_age);
+      if (min != null && age < min) return false;
+      if (max != null && age > max) return false;
+      return true;
+    });
+
+    if (!ok) return false;
+  }
+
+  return true;
+};
+
+const normRel = (v) => String(v || "").trim().toLowerCase();
+
+const passesFamilyRelation = (cfg, applicantAuthId, applicantFamily) => {
+  const needed = Array.isArray(cfg?.must_have_relation)
+    ? cfg.must_have_relation
+    : [];
+  const neededNorm = needed.map(normRel).filter(Boolean);
+
+  if (neededNorm.length === 0) return true;
+
+  const direction = cfg?.direction || "owner_has_family";
+
+  const rows = Array.isArray(applicantFamily) ? applicantFamily : [];
+
+  const ownerSide = rows
+    .filter((r) => r.owner_auth_user_id === applicantAuthId)
+    .map((r) => normRel(r.relationship_owner));
+
+  const familySide = rows
+    .filter((r) => r.family_auth_user_id === applicantAuthId)
+    .map((r) => normRel(r.relationship_family));
+
+  const hasAny = (list) => neededNorm.some((n) => list.includes(n));
+
+  if (direction === "owner_has_family") return hasAny(ownerSide);
+  if (direction === "family_has_owner") return hasAny(familySide);
+
+  // either_direction
+  return hasAny(ownerSide) || hasAny(familySide);
+};
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 const isAnswerProvidedByType = (req, answerJson) => {
   const a = answerJson || {};
   switch (req?.requirement_type) {
@@ -113,12 +203,27 @@ const isAnswerProvidedByType = (req, answerJson) => {
       const hours = a.hours_per_week ?? a.hoursPerWeek ?? a.hours ?? null;
       return days.length > 0 && hours != null && String(hours) !== "";
     }
+<<<<<<< HEAD
+=======
+    case "demographic":
+    case "family_relation":
+      return true;
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     default:
       return answerJson != null;
   }
 };
 
+<<<<<<< HEAD
 const renderAnswerFriendly = (req, ans) => {
+=======
+const renderAnswerFriendly = (
+  req,
+  ans,
+  applicantProfile,
+  applicantFamily
+) => {
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   const cfg = req?.config || {};
   const a = ans || {}; // stored in ministry_application_answers.answer
 
@@ -224,15 +329,26 @@ const renderAnswerFriendly = (req, ans) => {
   }
 
   // -----------------------
+<<<<<<< HEAD
   // age_range (review view)
   // -----------------------
   if (req.requirement_type === "age_range") {
     const min = cfg?.min_age ?? null;
     const max = cfg?.max_age ?? null;
+=======
+  // demographic (review view)
+  // -----------------------
+  if (req.requirement_type === "demographic") {
+    const age = computeAge(applicantProfile?.birthdate);
+    const g = normalizeGender(applicantProfile?.gender);
+
+    const pass = passesDemographic(cfg, applicantProfile);
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
     return (
       <div className="space-y-2">
         <div className="text-sm text-gray-700">
+<<<<<<< HEAD
           Required age:{" "}
           <b>
             {min != null ? min : "Any"} - {max != null ? max : "Any"}
@@ -242,6 +358,28 @@ const renderAnswerFriendly = (req, ans) => {
           (Tip: you can auto-check this from users_details.birthdate during
           review.)
         </div>
+=======
+          Applicant: <b>{g || "Unknown"}</b>, Age: <b>{age ?? "Unknown"}</b>
+        </div>
+
+        <div className="text-xs text-gray-500">
+          Allowed gender: <b>{(cfg.allowed_gender || []).join(", ") || "Any"}</b>
+          <br />
+          Age bands:{" "}
+          <b>
+            {Array.isArray(cfg.age_bands) && cfg.age_bands.length
+              ? cfg.age_bands
+                  .map(
+                    (b) =>
+                      `${b.label}: ${b.min_age ?? "Any"}-${b.max_age ?? "Any"}`
+                  )
+                  .join(" • ")
+              : "Any"}
+          </b>
+        </div>
+
+        <Chip tone={pass ? "good" : "bad"}>{pass ? "✅ Pass" : "❌ Fail"}</Chip>
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       </div>
     );
   }
@@ -250,10 +388,36 @@ const renderAnswerFriendly = (req, ans) => {
   // family_relation (review view)
   // -----------------------
   if (req.requirement_type === "family_relation") {
+<<<<<<< HEAD
     const needed = Array.isArray(cfg?.must_have_relation)
       ? cfg.must_have_relation
       : [];
     const direction = cfg?.direction || "owner_has_family";
+=======
+    const direction = cfg?.direction || "owner_has_family";
+
+    const applicantAuthId = applicantProfile?.auth_user_id || null;
+
+    const pass = applicantAuthId
+      ? passesFamilyRelation(cfg, applicantAuthId, applicantFamily)
+      : false;
+
+    // show what relations exist
+    const rows = Array.isArray(applicantFamily) ? applicantFamily : [];
+    const ownerRels = rows
+      .filter((r) => r.owner_auth_user_id === applicantAuthId)
+      .map((r) => r.relationship_owner)
+      .filter(Boolean);
+
+    const familyRels = rows
+      .filter((r) => r.family_auth_user_id === applicantAuthId)
+      .map((r) => r.relationship_family)
+      .filter(Boolean);
+
+    const needed = Array.isArray(cfg?.must_have_relation)
+      ? cfg.must_have_relation
+      : [];
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
     return (
       <div className="space-y-2">
@@ -264,8 +428,16 @@ const renderAnswerFriendly = (req, ans) => {
           Direction: <b>{direction}</b>
         </div>
         <div className="text-xs text-gray-500">
+<<<<<<< HEAD
           (Tip: compute pass/fail from user_family and show ✅/❌ here.)
         </div>
+=======
+          Found (as owner): <b>{ownerRels.join(", ") || "—"}</b>
+          <br />
+          Found (as family): <b>{familyRels.join(", ") || "—"}</b>
+        </div>
+        <Chip tone={pass ? "good" : "bad"}>{pass ? "✅ Pass" : "❌ Fail"}</Chip>
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       </div>
     );
   }
@@ -326,10 +498,21 @@ export default function Ministries({
   const [selectedApp, setSelectedApp] = useState(null);
   const [appAnswers, setAppAnswers] = useState([]);
   const [reviewNotes, setReviewNotes] = useState("");
+<<<<<<< HEAD
+=======
+  const [applicantProfile, setApplicantProfile] = useState(null);
+  const [applicantFamily, setApplicantFamily] = useState([]);
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
   // Add/Edit Requirement modal
   const [reqModalOpen, setReqModalOpen] = useState(false);
   const [editingReq, setEditingReq] = useState(null);
+<<<<<<< HEAD
+=======
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deletingReq, setDeletingReq] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
   // DnD ordering
   const [dragReqId, setDragReqId] = useState(null);
@@ -339,6 +522,28 @@ export default function Ministries({
   const normalizeSortOrders = (list) =>
     (list || []).map((r, idx) => ({ ...r, sort_order: idx * 10 }));
 
+<<<<<<< HEAD
+=======
+  const upsertReqIntoState = (row) => {
+    setRequirements((prev) => {
+      const list = Array.isArray(prev) ? [...prev] : [];
+      const idx = list.findIndex((x) => x.requirement_id === row.requirement_id);
+
+      if (idx >= 0) list[idx] = row;
+      else list.push(row);
+
+      list.sort((a, b) => {
+        const sa = Number(a.sort_order ?? 0);
+        const sb = Number(b.sort_order ?? 0);
+        if (sa !== sb) return sa - sb;
+        return Number(a.requirement_id) - Number(b.requirement_id);
+      });
+
+      return list;
+    });
+  };
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   const [reqForm, setReqForm] = useState({
     title: "",
     description: "",
@@ -359,11 +564,19 @@ export default function Ministries({
     availability_days: ["Sunday"],
     availability_min_hours: 0,
 
+<<<<<<< HEAD
     age_min: null,
     age_max: null,
 
     family_relations: ["Parent"],
     family_direction: "owner_has_family", // owner_has_family | family_has_owner | either_direction
+=======
+    family_relations: ["Parent"],
+    family_direction: "owner_has_family", // owner_has_family | family_has_owner | either_direction
+
+    allowed_genders: [],
+    demographic_age_bands: [{ label: "Minor", min_age: null, max_age: 17 }],
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   });
 
   const validateRequirementForm = (f) => {
@@ -373,7 +586,14 @@ export default function Ministries({
       if (!f.ack_text?.trim()) return "Agreement text is required.";
     }
 
+<<<<<<< HEAD
     if (f.requirement_type === "asset_select") {
+=======
+    if (
+      f.requirement_type === "asset_select" ||
+      f.requirement_type === "skill_select"
+    ) {
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       const opts = (f.asset_options || [])
         .map((x) => String(x || "").trim())
         .filter(Boolean);
@@ -404,6 +624,7 @@ export default function Ministries({
       if (hrs < 0) return "Min hours per week cannot be negative.";
     }
 
+<<<<<<< HEAD
     if (f.requirement_type === "age_range") {
       const min =
         f.age_min != null && f.age_min !== "" ? Number(f.age_min) : null;
@@ -415,6 +636,8 @@ export default function Ministries({
         return "Max age must be >= min age.";
     }
 
+=======
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     if (f.requirement_type === "family_relation") {
       const rel = (f.family_relations || [])
         .map(String)
@@ -423,6 +646,39 @@ export default function Ministries({
       if (rel.length === 0) return "Add at least one required family relation.";
     }
 
+<<<<<<< HEAD
+=======
+    if (f.requirement_type === "demographic") {
+      const genders = Array.isArray(f.allowed_genders) ? f.allowed_genders : [];
+
+      const bands = Array.isArray(f.demographic_age_bands)
+        ? f.demographic_age_bands
+        : [];
+
+      const cleaned = bands
+        .map((b) => ({
+          label: String(b?.label || "").trim(),
+          min_age:
+            b?.min_age === "" || b?.min_age == null ? null : Number(b.min_age),
+          max_age:
+            b?.max_age === "" || b?.max_age == null ? null : Number(b.max_age),
+        }))
+        .filter((b) => b.label);
+
+      if (genders.length === 0 && cleaned.length === 0)
+        return "Set at least one restriction (gender and/or age band).";
+
+      for (const b of cleaned) {
+        if (b.min_age != null && (Number.isNaN(b.min_age) || b.min_age < 0))
+          return `Invalid min age for "${b.label}".`;
+        if (b.max_age != null && (Number.isNaN(b.max_age) || b.max_age < 0))
+          return `Invalid max age for "${b.label}".`;
+        if (b.min_age != null && b.max_age != null && b.max_age < b.min_age)
+          return `Max age must be >= min age for "${b.label}".`;
+      }
+    }
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     return null;
   };
 
@@ -435,6 +691,10 @@ export default function Ministries({
         };
 
       case "asset_select":
+<<<<<<< HEAD
+=======
+      case "skill_select":
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
         return {
           options: (f.asset_options || [])
             .map((x) => String(x || "").trim())
@@ -453,6 +713,7 @@ export default function Ministries({
           min_hours_per_week: Number(f.availability_min_hours || 0),
         };
 
+<<<<<<< HEAD
       case "age_range":
         return {
           min_age:
@@ -461,12 +722,40 @@ export default function Ministries({
             f.age_max == null || f.age_max === "" ? null : Number(f.age_max),
         };
 
+=======
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       case "family_relation":
         return {
           must_have_relation: (f.family_relations || []).filter(Boolean),
           direction: f.family_direction || "owner_has_family",
         };
 
+<<<<<<< HEAD
+=======
+      case "demographic": {
+        const age_bands = (f.demographic_age_bands || [])
+          .map((b) => ({
+            label: String(b?.label || "").trim(),
+            min_age:
+              b?.min_age === "" || b?.min_age == null
+                ? null
+                : Number(b.min_age),
+            max_age:
+              b?.max_age === "" || b?.max_age == null
+                ? null
+                : Number(b.max_age),
+          }))
+          .filter((b) => b.label);
+
+        return {
+          allowed_gender: Array.isArray(f.allowed_genders)
+            ? f.allowed_genders
+            : [],
+          age_bands,
+        };
+      }
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       default:
         return {};
     }
@@ -524,9 +813,13 @@ export default function Ministries({
           ministry:ministries (
             id,
             name,
+<<<<<<< HEAD
             description,
             min_age,
             max_age
+=======
+            description
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
           ),
           branch:branches (
             branch_id,
@@ -870,6 +1163,34 @@ export default function Ministries({
 
       if (appErr) throw appErr;
 
+<<<<<<< HEAD
+=======
+      // applicant profile (birthdate + gender)
+      const { data: prof, error: pErr } = await supabase
+        .from("users_details")
+        .select("auth_user_id, birthdate, gender")
+        .eq("auth_user_id", app?.applicant_auth_user_id)
+        .maybeSingle();
+      if (pErr) throw pErr;
+      setApplicantProfile(prof || null);
+
+      // family rows (confirmed only)
+      const authId = app?.applicant_auth_user_id;
+      const { data: fam, error: fErr } = await supabase
+        .from("user_family")
+        .select(
+          "owner_auth_user_id, family_auth_user_id, status, relationship_owner, relationship_family"
+        )
+        .or(`owner_auth_user_id.eq.${authId},family_auth_user_id.eq.${authId}`);
+      if (fErr) throw fErr;
+
+      const confirmed = (fam || []).filter((r) => {
+        const s = String(r.status || "").toLowerCase();
+        return s === "accepted" || s === "approved" || s === "confirmed";
+      });
+      setApplicantFamily(confirmed);
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       // load answers + requirement meta
       const { data: answers, error: ansErr } = await supabase
         .from("ministry_application_answers")
@@ -926,6 +1247,11 @@ export default function Ministries({
       setErr(e?.message || "Failed to load application details.");
       setSelectedApp(null);
       setAppAnswers([]);
+<<<<<<< HEAD
+=======
+      setApplicantProfile(null);
+      setApplicantFamily([]);
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     } finally {
       setLoadingAppDetail(false);
     }
@@ -961,11 +1287,19 @@ export default function Ministries({
       availability_days: ["Sunday"],
       availability_min_hours: 0,
 
+<<<<<<< HEAD
       age_min: null,
       age_max: null,
 
       family_relations: ["Parent"],
       family_direction: "owner_has_family",
+=======
+      family_relations: ["Parent"],
+      family_direction: "owner_has_family",
+
+      allowed_genders: [],
+      demographic_age_bands: [{ label: "Minor", min_age: null, max_age: 17 }],
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     });
 
     setReqModalOpen(true);
@@ -994,11 +1328,19 @@ export default function Ministries({
       availability_days: cfg?.allowed_days || [],
       availability_min_hours: cfg?.min_hours_per_week ?? 0,
 
+<<<<<<< HEAD
       age_min: cfg?.min_age ?? null,
       age_max: cfg?.max_age ?? null,
 
       family_relations: cfg?.must_have_relation || [],
       family_direction: cfg?.direction || "owner_has_family",
+=======
+      family_relations: cfg?.must_have_relation || [],
+      family_direction: cfg?.direction || "owner_has_family",
+
+      allowed_genders: cfg?.allowed_gender || [],
+      demographic_age_bands: Array.isArray(cfg?.age_bands) ? cfg.age_bands : [],
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     });
 
     setReqModalOpen(true);
@@ -1086,6 +1428,7 @@ export default function Ministries({
       };
 
       if (editingReq?.requirement_id) {
+<<<<<<< HEAD
         const { error } = await supabase
           .from("ministry_requirements")
           .update(payload)
@@ -1100,13 +1443,43 @@ export default function Ministries({
             (await supabase.auth.getUser())?.data?.user?.id || null,
         });
         if (error) throw error;
+=======
+        const { data, error } = await supabase
+          .from("ministry_requirements")
+          .update(payload)
+          .eq("requirement_id", Number(editingReq.requirement_id))
+          .select(
+            "requirement_id, branch_ministry_id, title, description, requirement_type, is_required, sort_order, config, is_active, created_at, updated_at"
+          )
+          .single();
+        if (error) throw error;
+        if (data) upsertReqIntoState(data);
+      } else {
+        // created_by_auth_user_id will be set by your RLS/trigger or app (optional).
+        // If you want to set it in client, you can fetch auth user and include it.
+        const { data, error } = await supabase.from("ministry_requirements")
+          .insert({
+            ...payload,
+            created_by_auth_user_id:
+              (await supabase.auth.getUser())?.data?.user?.id || null,
+          })
+          .select(
+            "requirement_id, branch_ministry_id, title, description, requirement_type, is_required, sort_order, config, is_active, created_at, updated_at"
+          )
+          .single();
+        if (error) throw error;
+        if (data) upsertReqIntoState(data);
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       }
 
       setReqModalOpen(false);
       setEditingReq(null);
+<<<<<<< HEAD
       await fetchRequirementsForBranchMinistry(
         selectedBranchMinistry.branch_ministry_id
       );
+=======
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     } catch (e) {
       console.error(e);
       setErr(e?.message || "Failed to save requirement.");
@@ -1119,6 +1492,7 @@ export default function Ministries({
     if (!r?.requirement_id) return;
     try {
       setErr("");
+<<<<<<< HEAD
       const { error } = await supabase
         .from("ministry_requirements")
         .update({ is_active: !r.is_active })
@@ -1127,12 +1501,64 @@ export default function Ministries({
       await fetchRequirementsForBranchMinistry(
         selectedBranchMinistry.branch_ministry_id
       );
+=======
+      const { data, error } = await supabase
+        .from("ministry_requirements")
+        .update({ is_active: !r.is_active })
+        .eq("requirement_id", Number(r.requirement_id))
+        .select(
+          "requirement_id, branch_ministry_id, title, description, requirement_type, is_required, sort_order, config, is_active, created_at, updated_at"
+        )
+        .single();
+      if (error) throw error;
+      if (data) upsertReqIntoState(data);
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     } catch (e) {
       console.error(e);
       setErr(e?.message || "Failed to update requirement.");
     }
   };
 
+<<<<<<< HEAD
+=======
+  const openDeleteRequirementConfirm = (req) => {
+    setDeletingReq(req);
+    setConfirmDeleteOpen(true);
+  };
+
+  const deleteRequirement = async () => {
+    if (!deletingReq?.requirement_id) return;
+
+    try {
+      setDeleting(true);
+      setErr("");
+
+      const { error } = await supabase
+        .from("ministry_requirements")
+        .delete()
+        .eq("requirement_id", Number(deletingReq.requirement_id));
+
+      if (error) throw error;
+
+      setRequirements((prev) =>
+        (prev || []).filter(
+          (x) => x.requirement_id !== deletingReq.requirement_id
+        )
+      );
+
+      setConfirmDeleteOpen(false);
+      setDeletingReq(null);
+      setReqModalOpen(false);
+      setEditingReq(null);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Failed to delete requirement.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   // =========================
   // Actions: application review -> on approve insert into user_ministries
   // =========================
@@ -1153,6 +1579,51 @@ export default function Ministries({
         return;
       }
 
+<<<<<<< HEAD
+=======
+      // BLOCK approve if required items fail
+      for (const row of appAnswers) {
+        const r = row.requirement;
+        const cfg = r?.config || {};
+        const isReq = !!r?.is_required;
+
+        const answerJson = normalizeAnswerJson(row.answer);
+        const provided = isAnswerProvidedByType(r, answerJson);
+
+        // normal requirements: must be provided if required
+        const computedType = ["demographic", "family_relation"].includes(
+          r.requirement_type
+        );
+
+        if (isReq && !computedType && !provided) {
+          setErr(`Cannot approve: Missing required answer for "${r.title}".`);
+          return;
+        }
+
+        // computed checks
+        if (isReq && r.requirement_type === "demographic") {
+          if (!passesDemographic(cfg, applicantProfile)) {
+            setErr(
+              `Cannot approve: Demographic restriction failed for "${r.title}".`
+            );
+            return;
+          }
+        }
+
+        if (isReq && r.requirement_type === "family_relation") {
+          const applicantAuthId =
+            applicantProfile?.auth_user_id || selectedApp?.applicant_auth_user_id;
+          if (
+            !applicantAuthId ||
+            !passesFamilyRelation(cfg, applicantAuthId, applicantFamily)
+          ) {
+            setErr(`Cannot approve: Family requirement failed for "${r.title}".`);
+            return;
+          }
+        }
+      }
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       // 1) mark application approved
       const { error: upErr } = await supabase
         .from("ministry_applications")
@@ -1468,6 +1939,7 @@ export default function Ministries({
                                     No description
                                   </div>
                                 )}
+<<<<<<< HEAD
                                 <div className="text-xs text-gray-400 mt-1">
                                   Age:{" "}
                                   {r?.ministry?.min_age != null
@@ -1478,6 +1950,8 @@ export default function Ministries({
                                     ? r.ministry.max_age
                                     : "—"}
                                 </div>
+=======
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                               </td>
                               <td className="px-4 py-3 text-center">
                                 <span className="inline-flex items-center justify-center min-w-[44px] px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
@@ -1829,12 +2303,15 @@ export default function Ministries({
                                     >
                                       Edit
                                     </button>
+<<<<<<< HEAD
                                     <button
                                       onClick={() => toggleRequirementActive(r)}
                                       className="px-3 py-2 rounded-xl text-xs font-semibold border border-gray-200 hover:bg-gray-50"
                                     >
                                       {r.is_active ? "Disable" : "Enable"}
                                     </button>
+=======
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                                   </div>
                                 </td>
                               </tr>
@@ -1966,8 +2443,13 @@ export default function Ministries({
           Requirement Modal
          ========================= */}
       {reqModalOpen && (
+<<<<<<< HEAD
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+=======
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden max-h-[90vh] flex flex-col">
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <div className="font-bold text-gray-900">
@@ -1986,7 +2468,11 @@ export default function Ministries({
               </button>
             </div>
 
+<<<<<<< HEAD
             <div className="p-5 space-y-4">
+=======
+            <div className="p-5 space-y-4 overflow-y-auto">
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <div className="text-xs font-semibold text-gray-600 mb-1">
@@ -2018,11 +2504,18 @@ export default function Ministries({
                   >
                     <option value="text_ack">text_ack</option>
                     <option value="availability">availability</option>
+<<<<<<< HEAD
                     <option value="age_range">age_range</option>
                     <option value="skill_select">skill_select</option>
                     <option value="asset_select">asset_select</option>
                     <option value="family_relation">family_relation</option>
                     <option value="upload">upload</option>
+=======
+                    <option value="skill_select">skill_select</option>
+                    <option value="asset_select">asset_select</option>
+                    <option value="family_relation">family_relation</option>
+                    <option value="demographic">demographic</option>
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                     <option value="custom_form">custom_form</option>
                   </select>
                 </div>
@@ -2115,10 +2608,20 @@ export default function Ministries({
                 </div>
               )}
 
+<<<<<<< HEAD
               {reqForm.requirement_type === "asset_select" && (
                 <div className="space-y-3">
                   <div className="text-xs font-semibold text-gray-600">
                     Asset options
+=======
+              {(reqForm.requirement_type === "asset_select" ||
+                reqForm.requirement_type === "skill_select") && (
+                <div className="space-y-3">
+                  <div className="text-xs font-semibold text-gray-600">
+                    {reqForm.requirement_type === "skill_select"
+                      ? "Skill options"
+                      : "Asset options"}
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                   </div>
 
                   <div className="space-y-2">
@@ -2132,7 +2635,15 @@ export default function Ministries({
                             next[idx] = e.target.value;
                             setReqForm((p) => ({ ...p, asset_options: next }));
                           }}
+<<<<<<< HEAD
                           placeholder="e.g., Guitar"
+=======
+                          placeholder={
+                            reqForm.requirement_type === "skill_select"
+                              ? "e.g., Singing"
+                              : "e.g., Guitar"
+                          }
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                         />
                         <button
                           type="button"
@@ -2281,6 +2792,7 @@ export default function Ministries({
                 </div>
               )}
 
+<<<<<<< HEAD
               {reqForm.requirement_type === "age_range" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -2314,6 +2826,8 @@ export default function Ministries({
                 </div>
               )}
 
+=======
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               {reqForm.requirement_type === "family_relation" && (
                 <div className="space-y-3">
                   <div className="text-xs font-semibold text-gray-600">
@@ -2385,9 +2899,178 @@ export default function Ministries({
                   </div>
                 </div>
               )}
+<<<<<<< HEAD
             </div>
 
             <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
+=======
+
+              {reqForm.requirement_type === "demographic" && (
+                <div className="space-y-4">
+                  <div className="text-xs font-semibold text-gray-600">
+                    Allowed Gender
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {["Male", "Female"].map((g) => {
+                      const checked = (reqForm.allowed_genders || []).includes(
+                        g
+                      );
+                      return (
+                        <label key={g} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const set = new Set(reqForm.allowed_genders || []);
+                              if (e.target.checked) set.add(g);
+                              else set.delete(g);
+                              setReqForm((p) => ({
+                                ...p,
+                                allowed_genders: Array.from(set),
+                              }));
+                            }}
+                          />
+                          {g}
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="text-xs font-semibold text-gray-600 pt-2">
+                    Age Bands (optional)
+                  </div>
+
+                  <div className="space-y-2">
+                    {(reqForm.demographic_age_bands || []).map((b, idx) => (
+                      <div
+                        key={idx}
+                        className="grid grid-cols-1 md:grid-cols-12 gap-2"
+                      >
+                        <div className="md:col-span-4">
+                          <input
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                            placeholder="Label (e.g., Minor)"
+                            value={b.label || ""}
+                            onChange={(e) => {
+                              const next = [
+                                ...(reqForm.demographic_age_bands || []),
+                              ];
+                              next[idx] = { ...next[idx], label: e.target.value };
+                              setReqForm((p) => ({
+                                ...p,
+                                demographic_age_bands: next,
+                              }));
+                            }}
+                          />
+                        </div>
+
+                        <div className="md:col-span-3">
+                          <input
+                            type="number"
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                            placeholder="Min age"
+                            value={b.min_age ?? ""}
+                            min={0}
+                            onChange={(e) => {
+                              const next = [
+                                ...(reqForm.demographic_age_bands || []),
+                              ];
+                              next[idx] = {
+                                ...next[idx],
+                                min_age: e.target.value,
+                              };
+                              setReqForm((p) => ({
+                                ...p,
+                                demographic_age_bands: next,
+                              }));
+                            }}
+                          />
+                        </div>
+
+                        <div className="md:col-span-3">
+                          <input
+                            type="number"
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                            placeholder="Max age"
+                            value={b.max_age ?? ""}
+                            min={0}
+                            onChange={(e) => {
+                              const next = [
+                                ...(reqForm.demographic_age_bands || []),
+                              ];
+                              next[idx] = {
+                                ...next[idx],
+                                max_age: e.target.value,
+                              };
+                              setReqForm((p) => ({
+                                ...p,
+                                demographic_age_bands: next,
+                              }));
+                            }}
+                          />
+                        </div>
+
+                        <div className="md:col-span-2 flex">
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 rounded-xl text-xs font-semibold border border-gray-200 hover:bg-gray-50"
+                            onClick={() => {
+                              const next = (
+                                reqForm.demographic_age_bands || []
+                              ).filter((_, i) => i !== idx);
+                              setReqForm((p) => ({
+                                ...p,
+                                demographic_age_bands: next,
+                              }));
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-gray-900 text-white hover:bg-gray-800"
+                      onClick={() =>
+                        setReqForm((p) => ({
+                          ...p,
+                          demographic_age_bands: [
+                            ...(p.demographic_age_bands || []),
+                            { label: "", min_age: null, max_age: null },
+                          ],
+                        }))
+                      }
+                    >
+                      + Add age band
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
+              {editingReq?.requirement_id && (
+                <div className="mr-auto flex items-center gap-2">
+                  <button
+                    onClick={() => toggleRequirementActive(editingReq)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 hover:bg-gray-50"
+                    disabled={savingReq}
+                  >
+                    {editingReq.is_active ? "Disable" : "Enable"}
+                  </button>
+                  <button
+                    onClick={() => openDeleteRequirementConfirm(editingReq)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold border border-rose-200 text-rose-700 hover:bg-rose-50"
+                    disabled={savingReq}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               <button
                 onClick={() => {
                   setReqModalOpen(false);
@@ -2410,12 +3093,76 @@ export default function Ministries({
         </div>
       )}
 
+<<<<<<< HEAD
+=======
+      {confirmDeleteOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="font-bold text-gray-900">Delete Requirement</div>
+              <button
+                onClick={() => {
+                  if (deleting) return;
+                  setConfirmDeleteOpen(false);
+                  setDeletingReq(null);
+                }}
+                className="p-2 rounded-xl hover:bg-gray-100"
+              >
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-2">
+              <div className="text-sm text-gray-700">
+                Are you sure you want to delete:
+              </div>
+              <div className="text-sm font-semibold text-gray-900">
+                {deletingReq?.title || "This requirement"}
+              </div>
+              <div className="text-xs text-gray-500">
+                This action cannot be undone.
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (deleting) return;
+                  setConfirmDeleteOpen(false);
+                  setDeletingReq(null);
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 hover:bg-gray-50"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={deleteRequirement}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60"
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       {/* =========================
           Application Review Modal
          ========================= */}
       {appModalOpen && (
+<<<<<<< HEAD
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
           <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+=======
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden max-h-[90vh] flex flex-col">
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <div className="font-bold text-gray-900">
@@ -2436,7 +3183,11 @@ export default function Ministries({
               </button>
             </div>
 
+<<<<<<< HEAD
             <div className="p-5">
+=======
+            <div className="p-5 overflow-y-auto">
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               {loadingAppDetail ? (
                 <div className="p-10 text-center text-gray-600">
                   Loading application…
@@ -2563,7 +3314,16 @@ export default function Ministries({
                                       —
                                     </div>
                                   ) : (
+<<<<<<< HEAD
                                     renderAnswerFriendly(r, answerJson)
+=======
+                                    renderAnswerFriendly(
+                                      r,
+                                      answerJson,
+                                      applicantProfile,
+                                      applicantFamily
+                                    )
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                                   )}
                                 </div>
                               </div>
@@ -2611,3 +3371,7 @@ export default function Ministries({
     </div>
   );
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
