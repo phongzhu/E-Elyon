@@ -2836,7 +2836,7 @@ export default function Ministries({
       )}
 
       {confirmDeleteOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div className="font-bold text-gray-900">Delete Requirement</div>
