@@ -1,10 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import { supabase } from "../../lib/supabaseClient";
 import { Plus } from "lucide-react";
+import Radar from "radar-sdk-js";
+import { Circle, MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 const BUCKET = "church-event"; // storage bucket name
+const RADAR_PUBLISHABLE_KEY = process.env.REACT_APP_RADAR_PUBLISHABLE_KEY;
+const DEFAULT_GEOFENCE_RADIUS_M = 150;
+const DEFAULT_MAP_CENTER = { lat: 14.5995, lng: 120.9842 }; // Manila
 
 // RRULE helpers
 const RR_DAYS = [
@@ -73,6 +83,43 @@ const numOrNull = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
+
+const clamp = (value, min, max) =>
+  Math.min(max, Math.max(min, Number(value) || 0));
+
+function extractLatLng(address) {
+  const lat =
+    address?.latitude ??
+    address?.location?.latitude ??
+    address?.geometry?.coordinates?.[1];
+  const lng =
+    address?.longitude ??
+    address?.location?.longitude ??
+    address?.geometry?.coordinates?.[0];
+  return {
+    lat: Number(lat),
+    lng: Number(lng),
+  };
+}
+
+function GeofenceClickHandler({ onSelect }) {
+  useMapEvents({
+    click(e) {
+      const lat = e?.latlng?.lat;
+      const lng = e?.latlng?.lng;
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        onSelect(lat, lng);
+      }
+    },
+  });
+  return null;
+}
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 const isPaid = (adult, minor) => {
   const a = numOrNull(adult);
@@ -405,12 +452,18 @@ export default function BishopEvents({
     event_type: "",
     description: "",
     location: "",
+    geofence_lat: "",
+    geofence_lng: "",
+    geofence_radius_m: DEFAULT_GEOFENCE_RADIUS_M,
     date: "",
     start_time: "",
     end_time: "",
     regis_fee_adult: "",
     regis_fee_minor: "",
   });
+
+  const mapRef = useRef(null);
+  const [locationSource, setLocationSource] = useState("init");
 
   async function loadBranches() {
     let q = supabase
@@ -477,6 +530,9 @@ export default function BishopEvents({
         description,
         event_type,
         location,
+        geofence_lat,
+        geofence_lng,
+        geofence_radius_m,
         start_datetime,
         end_datetime,
         status,
@@ -583,6 +639,9 @@ export default function BishopEvents({
         starts_on,
         ends_on,
         status,
+        geofence_lat,
+        geofence_lng,
+        geofence_radius_m,
         regis_fee_adult,
         regis_fee_minor,
         is_open_for_all,
@@ -695,6 +754,87 @@ export default function BishopEvents({
   }, [visibility]);
 
   useEffect(() => {
+    if (RADAR_PUBLISHABLE_KEY) {
+      try {
+        Radar.initialize(RADAR_PUBLISHABLE_KEY);
+      } catch (e) {
+        console.warn("Radar init failed:", e?.message);
+      }
+    }
+  }, []);
+
+  function handleMapClick(lat, lng) {
+    setLocationSource("map");
+    setNewEvent((prev) => ({
+      ...prev,
+      geofence_lat: lat,
+      geofence_lng: lng,
+    }));
+
+    (async () => {
+      try {
+        if (RADAR_PUBLISHABLE_KEY) {
+          const res = await Radar.reverseGeocode({ latitude: lat, longitude: lng });
+          const address = res?.addresses?.[0];
+          const formatted =
+            address?.formattedAddress ||
+            address?.placeName ||
+            address?.addressLabel ||
+            `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          setNewEvent((prev) => ({
+            ...prev,
+            location: formatted,
+            geofence_lat: lat,
+            geofence_lng: lng,
+          }));
+        } else {
+          setNewEvent((prev) => ({
+            ...prev,
+            location: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            geofence_lat: lat,
+            geofence_lng: lng,
+          }));
+        }
+      } catch (err) {
+        console.warn("Reverse geocode failed:", err?.message);
+      }
+    })();
+  }
+
+  useEffect(() => {
+    if (!showCreate || createStep !== 0) return;
+    if (!RADAR_PUBLISHABLE_KEY) return;
+    if (locationSource !== "input") return;
+    const query = String(newEvent.location || "").trim();
+    if (!query || query.length < 3) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await Radar.geocode({ query });
+        const address = res?.addresses?.[0];
+        if (!address) return;
+        const { lat, lng } = extractLatLng(address);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        setLocationSource("geocode");
+        setNewEvent((prev) => ({
+          ...prev,
+          geofence_lat: lat,
+          geofence_lng: lng,
+        }));
+
+        if (mapRef.current) {
+          mapRef.current.flyTo([lat, lng], 14, { animate: true });
+        }
+      } catch (err) {
+        console.warn("Geocode failed:", err?.message);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [newEvent.location, locationSource, showCreate, createStep]);
+
+  useEffect(() => {
     loadAll().catch((e) => console.warn("Init load error:", e?.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -751,6 +891,10 @@ export default function BishopEvents({
       event_type: item.event_type || "",
       description: item.description || "",
       location: item.location || "",
+      geofence_lat: item.geofence_lat ?? "",
+      geofence_lng: item.geofence_lng ?? "",
+      geofence_radius_m:
+        item.geofence_radius_m ?? DEFAULT_GEOFENCE_RADIUS_M,
       date:
         kind === "event" ? String(item.start_datetime || "").slice(0, 10) : "",
       start_time:
@@ -760,6 +904,11 @@ export default function BishopEvents({
       regis_fee_adult: item.regis_fee_adult ?? "",
       regis_fee_minor: item.regis_fee_minor ?? "",
     });
+
+    const hasGeo =
+      Number.isFinite(Number(item.geofence_lat)) &&
+      Number.isFinite(Number(item.geofence_lng));
+    setLocationSource(hasGeo ? "init" : "input");
 
     setVisibility(
       lockVisibilityToSelected
@@ -959,6 +1108,16 @@ export default function BishopEvents({
     if (!newEvent.event_type) return "Event type is required.";
     if (!newEvent.location) return "Location is required.";
 
+    const geoLat = numOrNull(newEvent.geofence_lat);
+    const geoLng = numOrNull(newEvent.geofence_lng);
+    const geoRadius = numOrNull(newEvent.geofence_radius_m);
+    if (geoLat === null || geoLng === null) {
+      return "Please set the event location on the map.";
+    }
+    if (!geoRadius || geoRadius <= 0) {
+      return "Geofence radius must be greater than 0 meters.";
+    }
+
     // registration fee is optional (free event allowed)
     // BUT if they typed something, enforce non-negative
     const a = numOrNull(newEvent.regis_fee_adult);
@@ -1072,6 +1231,9 @@ export default function BishopEvents({
             description: newEvent.description || null,
             event_type: newEvent.event_type,
             location: newEvent.location,
+            geofence_lat: numOrNull(newEvent.geofence_lat),
+            geofence_lng: numOrNull(newEvent.geofence_lng),
+            geofence_radius_m: numOrNull(newEvent.geofence_radius_m),
             start_datetime: start.toISOString(),
             end_datetime: end.toISOString(),
             is_open_for_all: isOpen,
@@ -1133,6 +1295,9 @@ export default function BishopEvents({
           description: newEvent.description || null,
           event_type: newEvent.event_type,
           location: newEvent.location,
+          geofence_lat: numOrNull(newEvent.geofence_lat),
+          geofence_lng: numOrNull(newEvent.geofence_lng),
+          geofence_radius_m: numOrNull(newEvent.geofence_radius_m),
           start_datetime: start.toISOString(),
           end_datetime: end.toISOString(),
           created_by: me.primary_user_id,
@@ -1192,6 +1357,9 @@ export default function BishopEvents({
           description: newEvent.description || null,
           event_type: newEvent.event_type,
           location: newEvent.location,
+          geofence_lat: numOrNull(newEvent.geofence_lat),
+          geofence_lng: numOrNull(newEvent.geofence_lng),
+          geofence_radius_m: numOrNull(newEvent.geofence_radius_m),
           is_open_for_all: isOpen,
           branch_id: isOpen ? null : effectiveBranchId,
 
@@ -1249,6 +1417,9 @@ export default function BishopEvents({
         description: newEvent.description || null,
         event_type: newEvent.event_type,
         location: newEvent.location,
+        geofence_lat: numOrNull(newEvent.geofence_lat),
+        geofence_lng: numOrNull(newEvent.geofence_lng),
+        geofence_radius_m: numOrNull(newEvent.geofence_radius_m),
 
         is_open_for_all: isOpen,
         branch_id:
@@ -1344,12 +1515,16 @@ export default function BishopEvents({
       event_type: "",
       description: "",
       location: "",
+      geofence_lat: "",
+      geofence_lng: "",
+      geofence_radius_m: DEFAULT_GEOFENCE_RADIUS_M,
       date: "",
       start_time: "",
       end_time: "",
       regis_fee_adult: "",
       regis_fee_minor: "",
     });
+    setLocationSource("init");
   }
 
   return (
@@ -1749,10 +1924,102 @@ export default function BishopEvents({
                       className="w-full border rounded-md px-3 py-2 text-sm"
                       placeholder="Location"
                       value={newEvent.location}
-                      onChange={(e) =>
-                        setNewEvent({ ...newEvent, location: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setLocationSource("input");
+                        setNewEvent({ ...newEvent, location: e.target.value });
+                      }}
                     />
+
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium text-gray-800">
+                          Set Event Geofence
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-gray-500">
+                            Radius (m)
+                          </label>
+                          <input
+                            type="number"
+                            min="25"
+                            max="5000"
+                            className="w-24 border rounded-md px-2 py-1 text-xs"
+                            value={newEvent.geofence_radius_m}
+                            onChange={(e) =>
+                              setNewEvent({
+                                ...newEvent,
+                                geofence_radius_m: clamp(
+                                  e.target.value,
+                                  25,
+                                  5000
+                                ),
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="w-full h-56 rounded-md border overflow-hidden">
+                        <MapContainer
+                          center={[
+                            Number(newEvent.geofence_lat) ||
+                              DEFAULT_MAP_CENTER.lat,
+                            Number(newEvent.geofence_lng) ||
+                              DEFAULT_MAP_CENTER.lng,
+                          ]}
+                          zoom={14}
+                          scrollWheelZoom
+                          style={{ width: "100%", height: "100%" }}
+                          whenCreated={(map) => {
+                            mapRef.current = map;
+                          }}
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution="&copy; OpenStreetMap contributors"
+                          />
+                          <GeofenceClickHandler onSelect={handleMapClick} />
+                          {Number.isFinite(Number(newEvent.geofence_lat)) &&
+                            Number.isFinite(Number(newEvent.geofence_lng)) && (
+                              <>
+                                <Marker
+                                  position={[
+                                    Number(newEvent.geofence_lat),
+                                    Number(newEvent.geofence_lng),
+                                  ]}
+                                />
+                                <Circle
+                                  center={[
+                                    Number(newEvent.geofence_lat),
+                                    Number(newEvent.geofence_lng),
+                                  ]}
+                                  radius={clamp(
+                                    newEvent.geofence_radius_m,
+                                    25,
+                                    5000
+                                  )}
+                                  pathOptions={{
+                                    color: "#059669",
+                                    fillColor: "#10b981",
+                                  }}
+                                />
+                              </>
+                            )}
+                        </MapContainer>
+                      </div>
+                      <div className="text-xs text-gray-500 flex items-center">
+                        Click the map to set the center of the event location.
+                      </div>
+                      <div className="text-xs text-gray-500 flex items-center">
+                        Center:{" "}
+                        {Number.isFinite(Number(newEvent.geofence_lat))
+                          ? Number(newEvent.geofence_lat).toFixed(6)
+                          : "-"}
+                        ,{" "}
+                        {Number.isFinite(Number(newEvent.geofence_lng))
+                          ? Number(newEvent.geofence_lng).toFixed(6)
+                          : "-"}
+                      </div>
+                    </div>
 
                     <textarea
                       className="w-full border rounded-md px-3 py-2 text-sm"
@@ -2207,10 +2474,6 @@ export default function BishopEvents({
                           New image selected: {imageFile.name}
                         </div>
                       )}
-
-                      <div className="text-xs text-gray-500">
-                        Stored in bucket: <b>{BUCKET}</b>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -2340,6 +2603,17 @@ export default function BishopEvents({
                       </div>
                       <div>
                         <b>Location:</b> {newEvent.location}
+                      </div>
+                      <div>
+                        <b>Geofence:</b> {Number(newEvent.geofence_radius_m) || 0}
+                        m @{" "}
+                        {Number.isFinite(Number(newEvent.geofence_lat))
+                          ? Number(newEvent.geofence_lat).toFixed(6)
+                          : "-"}
+                        ,{" "}
+                        {Number.isFinite(Number(newEvent.geofence_lng))
+                          ? Number(newEvent.geofence_lng).toFixed(6)
+                          : "-"}
                       </div>
                       <div>
                         <b>Registration Fee:</b>{" "}
@@ -2488,6 +2762,18 @@ export default function BishopEvents({
                     </div>
                     <div>
                       <b>Location:</b> {viewItem.location}
+                    </div>
+                    <div>
+                      <b>Geofence:</b> {Number(viewItem.geofence_radius_m || 0)}m
+                      {" "}
+                      @{" "}
+                      {Number.isFinite(Number(viewItem.geofence_lat))
+                        ? Number(viewItem.geofence_lat).toFixed(6)
+                        : "-"}
+                      ,{" "}
+                      {Number.isFinite(Number(viewItem.geofence_lng))
+                        ? Number(viewItem.geofence_lng).toFixed(6)
+                        : "-"}
                     </div>
                     <div>
                       <b>Registration Fee:</b>{" "}

@@ -57,7 +57,6 @@ const prettyTypeLabel = (t) => {
       return "Assets / Items";
     case "skill_select":
       return "Skills";
-// CLEANED: Removed merge conflict marker
     case "age_range":
       return "Age Requirement";
     case "family_relation":
@@ -66,7 +65,7 @@ const prettyTypeLabel = (t) => {
       return "Upload";
     case "custom_form":
       return "Form";
-// CLEANED: Removed merge conflict marker
+
     case "family_relation":
       return "Family Requirement";
     case "custom_form":
@@ -109,8 +108,6 @@ const normalizeAnswerJson = (ans) => {
   return { value: ans };
 };
 
-<<<<<<< HEAD
-=======
 const normalizeGender = (v) => {
   const s = String(v || "").trim().toLowerCase();
   if (s === "male" || s === "m") return "Male";
@@ -189,7 +186,6 @@ const passesFamilyRelation = (cfg, applicantAuthId, applicantFamily) => {
   return hasAny(ownerSide) || hasAny(familySide);
 };
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 const isAnswerProvidedByType = (req, answerJson) => {
   const a = answerJson || {};
   switch (req?.requirement_type) {
@@ -203,27 +199,20 @@ const isAnswerProvidedByType = (req, answerJson) => {
       const hours = a.hours_per_week ?? a.hoursPerWeek ?? a.hours ?? null;
       return days.length > 0 && hours != null && String(hours) !== "";
     }
-<<<<<<< HEAD
-=======
     case "demographic":
     case "family_relation":
       return true;
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     default:
       return answerJson != null;
   }
 };
 
-<<<<<<< HEAD
-const renderAnswerFriendly = (req, ans) => {
-=======
 const renderAnswerFriendly = (
   req,
   ans,
   applicantProfile,
   applicantFamily
 ) => {
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   const cfg = req?.config || {};
   const a = ans || {}; // stored in ministry_application_answers.answer
 
@@ -329,13 +318,6 @@ const renderAnswerFriendly = (
   }
 
   // -----------------------
-<<<<<<< HEAD
-  // age_range (review view)
-  // -----------------------
-  if (req.requirement_type === "age_range") {
-    const min = cfg?.min_age ?? null;
-    const max = cfg?.max_age ?? null;
-=======
   // demographic (review view)
   // -----------------------
   if (req.requirement_type === "demographic") {
@@ -343,22 +325,10 @@ const renderAnswerFriendly = (
     const g = normalizeGender(applicantProfile?.gender);
 
     const pass = passesDemographic(cfg, applicantProfile);
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
     return (
       <div className="space-y-2">
         <div className="text-sm text-gray-700">
-<<<<<<< HEAD
-          Required age:{" "}
-          <b>
-            {min != null ? min : "Any"} - {max != null ? max : "Any"}
-          </b>
-        </div>
-        <div className="text-xs text-gray-500">
-          (Tip: you can auto-check this from users_details.birthdate during
-          review.)
-        </div>
-=======
           Applicant: <b>{g || "Unknown"}</b>, Age: <b>{age ?? "Unknown"}</b>
         </div>
 
@@ -379,7 +349,6 @@ const renderAnswerFriendly = (
         </div>
 
         <Chip tone={pass ? "good" : "bad"}>{pass ? "✅ Pass" : "❌ Fail"}</Chip>
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       </div>
     );
   }
@@ -388,12 +357,6 @@ const renderAnswerFriendly = (
   // family_relation (review view)
   // -----------------------
   if (req.requirement_type === "family_relation") {
-<<<<<<< HEAD
-    const needed = Array.isArray(cfg?.must_have_relation)
-      ? cfg.must_have_relation
-      : [];
-    const direction = cfg?.direction || "owner_has_family";
-=======
     const direction = cfg?.direction || "owner_has_family";
 
     const applicantAuthId = applicantProfile?.auth_user_id || null;
@@ -417,7 +380,6 @@ const renderAnswerFriendly = (
     const needed = Array.isArray(cfg?.must_have_relation)
       ? cfg.must_have_relation
       : [];
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
     return (
       <div className="space-y-2">
@@ -428,16 +390,11 @@ const renderAnswerFriendly = (
           Direction: <b>{direction}</b>
         </div>
         <div className="text-xs text-gray-500">
-<<<<<<< HEAD
-          (Tip: compute pass/fail from user_family and show ✅/❌ here.)
-        </div>
-=======
           Found (as owner): <b>{ownerRels.join(", ") || "—"}</b>
           <br />
           Found (as family): <b>{familyRels.join(", ") || "—"}</b>
         </div>
         <Chip tone={pass ? "good" : "bad"}>{pass ? "✅ Pass" : "❌ Fail"}</Chip>
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       </div>
     );
   }
@@ -498,21 +455,15 @@ export default function Ministries({
   const [selectedApp, setSelectedApp] = useState(null);
   const [appAnswers, setAppAnswers] = useState([]);
   const [reviewNotes, setReviewNotes] = useState("");
-<<<<<<< HEAD
-=======
   const [applicantProfile, setApplicantProfile] = useState(null);
   const [applicantFamily, setApplicantFamily] = useState([]);
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
   // Add/Edit Requirement modal
   const [reqModalOpen, setReqModalOpen] = useState(false);
   const [editingReq, setEditingReq] = useState(null);
-<<<<<<< HEAD
-=======
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deletingReq, setDeletingReq] = useState(null);
   const [deleting, setDeleting] = useState(false);
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
 
   // DnD ordering
   const [dragReqId, setDragReqId] = useState(null);
@@ -522,8 +473,6 @@ export default function Ministries({
   const normalizeSortOrders = (list) =>
     (list || []).map((r, idx) => ({ ...r, sort_order: idx * 10 }));
 
-<<<<<<< HEAD
-=======
   const upsertReqIntoState = (row) => {
     setRequirements((prev) => {
       const list = Array.isArray(prev) ? [...prev] : [];
@@ -543,7 +492,6 @@ export default function Ministries({
     });
   };
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   const [reqForm, setReqForm] = useState({
     title: "",
     description: "",
@@ -564,19 +512,11 @@ export default function Ministries({
     availability_days: ["Sunday"],
     availability_min_hours: 0,
 
-<<<<<<< HEAD
-    age_min: null,
-    age_max: null,
-
-    family_relations: ["Parent"],
-    family_direction: "owner_has_family", // owner_has_family | family_has_owner | either_direction
-=======
     family_relations: ["Parent"],
     family_direction: "owner_has_family", // owner_has_family | family_has_owner | either_direction
 
     allowed_genders: [],
     demographic_age_bands: [{ label: "Minor", min_age: null, max_age: 17 }],
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   });
 
   const validateRequirementForm = (f) => {
@@ -586,14 +526,10 @@ export default function Ministries({
       if (!f.ack_text?.trim()) return "Agreement text is required.";
     }
 
-<<<<<<< HEAD
-    if (f.requirement_type === "asset_select") {
-=======
     if (
       f.requirement_type === "asset_select" ||
       f.requirement_type === "skill_select"
     ) {
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       const opts = (f.asset_options || [])
         .map((x) => String(x || "").trim())
         .filter(Boolean);
@@ -624,20 +560,6 @@ export default function Ministries({
       if (hrs < 0) return "Min hours per week cannot be negative.";
     }
 
-<<<<<<< HEAD
-    if (f.requirement_type === "age_range") {
-      const min =
-        f.age_min != null && f.age_min !== "" ? Number(f.age_min) : null;
-      const max =
-        f.age_max != null && f.age_max !== "" ? Number(f.age_max) : null;
-      if (min != null && min < 0) return "Min age cannot be negative.";
-      if (max != null && max < 0) return "Max age cannot be negative.";
-      if (min != null && max != null && max < min)
-        return "Max age must be >= min age.";
-    }
-
-=======
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     if (f.requirement_type === "family_relation") {
       const rel = (f.family_relations || [])
         .map(String)
@@ -646,8 +568,6 @@ export default function Ministries({
       if (rel.length === 0) return "Add at least one required family relation.";
     }
 
-<<<<<<< HEAD
-=======
     if (f.requirement_type === "demographic") {
       const genders = Array.isArray(f.allowed_genders) ? f.allowed_genders : [];
 
@@ -678,7 +598,6 @@ export default function Ministries({
       }
     }
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     return null;
   };
 
@@ -691,10 +610,7 @@ export default function Ministries({
         };
 
       case "asset_select":
-<<<<<<< HEAD
-=======
       case "skill_select":
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
         return {
           options: (f.asset_options || [])
             .map((x) => String(x || "").trim())
@@ -713,25 +629,12 @@ export default function Ministries({
           min_hours_per_week: Number(f.availability_min_hours || 0),
         };
 
-<<<<<<< HEAD
-      case "age_range":
-        return {
-          min_age:
-            f.age_min == null || f.age_min === "" ? null : Number(f.age_min),
-          max_age:
-            f.age_max == null || f.age_max === "" ? null : Number(f.age_max),
-        };
-
-=======
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       case "family_relation":
         return {
           must_have_relation: (f.family_relations || []).filter(Boolean),
           direction: f.family_direction || "owner_has_family",
         };
 
-<<<<<<< HEAD
-=======
       case "demographic": {
         const age_bands = (f.demographic_age_bands || [])
           .map((b) => ({
@@ -755,7 +658,6 @@ export default function Ministries({
         };
       }
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       default:
         return {};
     }
@@ -813,13 +715,7 @@ export default function Ministries({
           ministry:ministries (
             id,
             name,
-<<<<<<< HEAD
-            description,
-            min_age,
-            max_age
-=======
             description
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
           ),
           branch:branches (
             branch_id,
@@ -1163,8 +1059,6 @@ export default function Ministries({
 
       if (appErr) throw appErr;
 
-<<<<<<< HEAD
-=======
       // applicant profile (birthdate + gender)
       const { data: prof, error: pErr } = await supabase
         .from("users_details")
@@ -1190,7 +1084,6 @@ export default function Ministries({
       });
       setApplicantFamily(confirmed);
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       // load answers + requirement meta
       const { data: answers, error: ansErr } = await supabase
         .from("ministry_application_answers")
@@ -1247,11 +1140,8 @@ export default function Ministries({
       setErr(e?.message || "Failed to load application details.");
       setSelectedApp(null);
       setAppAnswers([]);
-<<<<<<< HEAD
-=======
       setApplicantProfile(null);
       setApplicantFamily([]);
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     } finally {
       setLoadingAppDetail(false);
     }
@@ -1287,19 +1177,11 @@ export default function Ministries({
       availability_days: ["Sunday"],
       availability_min_hours: 0,
 
-<<<<<<< HEAD
-      age_min: null,
-      age_max: null,
-
-      family_relations: ["Parent"],
-      family_direction: "owner_has_family",
-=======
       family_relations: ["Parent"],
       family_direction: "owner_has_family",
 
       allowed_genders: [],
       demographic_age_bands: [{ label: "Minor", min_age: null, max_age: 17 }],
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     });
 
     setReqModalOpen(true);
@@ -1328,19 +1210,11 @@ export default function Ministries({
       availability_days: cfg?.allowed_days || [],
       availability_min_hours: cfg?.min_hours_per_week ?? 0,
 
-<<<<<<< HEAD
-      age_min: cfg?.min_age ?? null,
-      age_max: cfg?.max_age ?? null,
-
-      family_relations: cfg?.must_have_relation || [],
-      family_direction: cfg?.direction || "owner_has_family",
-=======
       family_relations: cfg?.must_have_relation || [],
       family_direction: cfg?.direction || "owner_has_family",
 
       allowed_genders: cfg?.allowed_gender || [],
       demographic_age_bands: Array.isArray(cfg?.age_bands) ? cfg.age_bands : [],
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     });
 
     setReqModalOpen(true);
@@ -1428,22 +1302,6 @@ export default function Ministries({
       };
 
       if (editingReq?.requirement_id) {
-<<<<<<< HEAD
-        const { error } = await supabase
-          .from("ministry_requirements")
-          .update(payload)
-          .eq("requirement_id", Number(editingReq.requirement_id));
-        if (error) throw error;
-      } else {
-        // created_by_auth_user_id will be set by your RLS/trigger or app (optional).
-        // If you want to set it in client, you can fetch auth user and include it.
-        const { error } = await supabase.from("ministry_requirements").insert({
-          ...payload,
-          created_by_auth_user_id:
-            (await supabase.auth.getUser())?.data?.user?.id || null,
-        });
-        if (error) throw error;
-=======
         const { data, error } = await supabase
           .from("ministry_requirements")
           .update(payload)
@@ -1469,17 +1327,10 @@ export default function Ministries({
           .single();
         if (error) throw error;
         if (data) upsertReqIntoState(data);
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       }
 
       setReqModalOpen(false);
       setEditingReq(null);
-<<<<<<< HEAD
-      await fetchRequirementsForBranchMinistry(
-        selectedBranchMinistry.branch_ministry_id
-      );
-=======
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     } catch (e) {
       console.error(e);
       setErr(e?.message || "Failed to save requirement.");
@@ -1492,16 +1343,6 @@ export default function Ministries({
     if (!r?.requirement_id) return;
     try {
       setErr("");
-<<<<<<< HEAD
-      const { error } = await supabase
-        .from("ministry_requirements")
-        .update({ is_active: !r.is_active })
-        .eq("requirement_id", Number(r.requirement_id));
-      if (error) throw error;
-      await fetchRequirementsForBranchMinistry(
-        selectedBranchMinistry.branch_ministry_id
-      );
-=======
       const { data, error } = await supabase
         .from("ministry_requirements")
         .update({ is_active: !r.is_active })
@@ -1512,15 +1353,12 @@ export default function Ministries({
         .single();
       if (error) throw error;
       if (data) upsertReqIntoState(data);
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
     } catch (e) {
       console.error(e);
       setErr(e?.message || "Failed to update requirement.");
     }
   };
 
-<<<<<<< HEAD
-=======
   const openDeleteRequirementConfirm = (req) => {
     setDeletingReq(req);
     setConfirmDeleteOpen(true);
@@ -1558,7 +1396,6 @@ export default function Ministries({
     }
   };
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
   // =========================
   // Actions: application review -> on approve insert into user_ministries
   // =========================
@@ -1579,8 +1416,6 @@ export default function Ministries({
         return;
       }
 
-<<<<<<< HEAD
-=======
       // BLOCK approve if required items fail
       for (const row of appAnswers) {
         const r = row.requirement;
@@ -1623,7 +1458,6 @@ export default function Ministries({
         }
       }
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       // 1) mark application approved
       const { error: upErr } = await supabase
         .from("ministry_applications")
@@ -1939,19 +1773,6 @@ export default function Ministries({
                                     No description
                                   </div>
                                 )}
-<<<<<<< HEAD
-                                <div className="text-xs text-gray-400 mt-1">
-                                  Age:{" "}
-                                  {r?.ministry?.min_age != null
-                                    ? r.ministry.min_age
-                                    : "—"}{" "}
-                                  to{" "}
-                                  {r?.ministry?.max_age != null
-                                    ? r.ministry.max_age
-                                    : "—"}
-                                </div>
-=======
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                               </td>
                               <td className="px-4 py-3 text-center">
                                 <span className="inline-flex items-center justify-center min-w-[44px] px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
@@ -2303,15 +2124,6 @@ export default function Ministries({
                                     >
                                       Edit
                                     </button>
-<<<<<<< HEAD
-                                    <button
-                                      onClick={() => toggleRequirementActive(r)}
-                                      className="px-3 py-2 rounded-xl text-xs font-semibold border border-gray-200 hover:bg-gray-50"
-                                    >
-                                      {r.is_active ? "Disable" : "Enable"}
-                                    </button>
-=======
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                                   </div>
                                 </td>
                               </tr>
@@ -2443,13 +2255,8 @@ export default function Ministries({
           Requirement Modal
          ========================= */}
       {reqModalOpen && (
-<<<<<<< HEAD
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-=======
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden max-h-[90vh] flex flex-col">
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <div className="font-bold text-gray-900">
@@ -2468,11 +2275,7 @@ export default function Ministries({
               </button>
             </div>
 
-<<<<<<< HEAD
-            <div className="p-5 space-y-4">
-=======
             <div className="p-5 space-y-4 overflow-y-auto">
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <div className="text-xs font-semibold text-gray-600 mb-1">
@@ -2504,18 +2307,10 @@ export default function Ministries({
                   >
                     <option value="text_ack">text_ack</option>
                     <option value="availability">availability</option>
-<<<<<<< HEAD
-                    <option value="age_range">age_range</option>
-                    <option value="skill_select">skill_select</option>
-                    <option value="asset_select">asset_select</option>
-                    <option value="family_relation">family_relation</option>
-                    <option value="upload">upload</option>
-=======
                     <option value="skill_select">skill_select</option>
                     <option value="asset_select">asset_select</option>
                     <option value="family_relation">family_relation</option>
                     <option value="demographic">demographic</option>
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                     <option value="custom_form">custom_form</option>
                   </select>
                 </div>
@@ -2608,12 +2403,6 @@ export default function Ministries({
                 </div>
               )}
 
-<<<<<<< HEAD
-              {reqForm.requirement_type === "asset_select" && (
-                <div className="space-y-3">
-                  <div className="text-xs font-semibold text-gray-600">
-                    Asset options
-=======
               {(reqForm.requirement_type === "asset_select" ||
                 reqForm.requirement_type === "skill_select") && (
                 <div className="space-y-3">
@@ -2621,7 +2410,6 @@ export default function Ministries({
                     {reqForm.requirement_type === "skill_select"
                       ? "Skill options"
                       : "Asset options"}
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                   </div>
 
                   <div className="space-y-2">
@@ -2635,15 +2423,11 @@ export default function Ministries({
                             next[idx] = e.target.value;
                             setReqForm((p) => ({ ...p, asset_options: next }));
                           }}
-<<<<<<< HEAD
-                          placeholder="e.g., Guitar"
-=======
                           placeholder={
                             reqForm.requirement_type === "skill_select"
                               ? "e.g., Singing"
                               : "e.g., Guitar"
                           }
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                         />
                         <button
                           type="button"
@@ -2792,42 +2576,6 @@ export default function Ministries({
                 </div>
               )}
 
-<<<<<<< HEAD
-              {reqForm.requirement_type === "age_range" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs font-semibold text-gray-600 mb-1">
-                      Min age
-                    </div>
-                    <input
-                      type="number"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
-                      value={reqForm.age_min ?? ""}
-                      onChange={(e) =>
-                        setReqForm((p) => ({ ...p, age_min: e.target.value }))
-                      }
-                      min={0}
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-gray-600 mb-1">
-                      Max age
-                    </div>
-                    <input
-                      type="number"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
-                      value={reqForm.age_max ?? ""}
-                      onChange={(e) =>
-                        setReqForm((p) => ({ ...p, age_max: e.target.value }))
-                      }
-                      min={0}
-                    />
-                  </div>
-                </div>
-              )}
-
-=======
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               {reqForm.requirement_type === "family_relation" && (
                 <div className="space-y-3">
                   <div className="text-xs font-semibold text-gray-600">
@@ -2899,11 +2647,6 @@ export default function Ministries({
                   </div>
                 </div>
               )}
-<<<<<<< HEAD
-            </div>
-
-            <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
-=======
 
               {reqForm.requirement_type === "demographic" && (
                 <div className="space-y-4">
@@ -3070,7 +2813,6 @@ export default function Ministries({
                   </button>
                 </div>
               )}
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               <button
                 onClick={() => {
                   setReqModalOpen(false);
@@ -3093,8 +2835,6 @@ export default function Ministries({
         </div>
       )}
 
-<<<<<<< HEAD
-=======
       {confirmDeleteOpen && (
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -3151,18 +2891,12 @@ export default function Ministries({
         </div>
       )}
 
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
       {/* =========================
           Application Review Modal
          ========================= */}
       {appModalOpen && (
-<<<<<<< HEAD
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-=======
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden max-h-[90vh] flex flex-col">
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <div className="font-bold text-gray-900">
@@ -3183,11 +2917,7 @@ export default function Ministries({
               </button>
             </div>
 
-<<<<<<< HEAD
-            <div className="p-5">
-=======
             <div className="p-5 overflow-y-auto">
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
               {loadingAppDetail ? (
                 <div className="p-10 text-center text-gray-600">
                   Loading application…
@@ -3314,16 +3044,12 @@ export default function Ministries({
                                       —
                                     </div>
                                   ) : (
-<<<<<<< HEAD
-                                    renderAnswerFriendly(r, answerJson)
-=======
                                     renderAnswerFriendly(
                                       r,
                                       answerJson,
                                       applicantProfile,
                                       applicantFamily
                                     )
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
                                   )}
                                 </div>
                               </div>
@@ -3371,7 +3097,3 @@ export default function Ministries({
     </div>
   );
 }
-<<<<<<< HEAD
-=======
-
->>>>>>> 62deadc (Initial commit for csb-nk4xyp/draft/romantic-jones branch)
