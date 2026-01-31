@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Home,
   LogOut,
   X,
   ChevronRight,
+  ChevronDown,
   Database,
   FileText,
   UserCircle,
@@ -17,16 +18,28 @@ import {
   Briefcase,
   MessageSquare,
   PieChart,
+  Receipt,
+  TrendingUp,
+  Wallet,
+  ArrowLeftRight,
+  Clock,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useBranding } from "../context/BrandingContext";
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    const saved = localStorage.getItem("sidebarCollapsed");
+    return saved === "true";
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const { branding } = useBranding();
+
+  useEffect(() => {
+    localStorage.setItem("sidebarCollapsed", collapsed);
+  }, [collapsed]);
 
   const handleLogout = async () => {
     try {
@@ -106,15 +119,17 @@ export default function Sidebar() {
         icon: <Calendar size={20} />,
       },
       {
+        path: "/bishop/ministries",
         name: "Manage Ministries",
         icon: <Briefcase size={20} />,
-        dropdown: [
-          { path: "/bishop/ministries", name: "Ministries" },
-          {
-            path: "/bishop/manage-ministry-activity",
-            name: "Manage Ministry Activity",
-          },
-        ],
+        // Commented out dropdown until Manage Ministry Activity page is created
+        // dropdown: [
+        //   { path: "/bishop/ministries", name: "Ministries" },
+        //   {
+        //     path: "/bishop/manage-ministry-activity",
+        //     name: "Manage Ministry Activity",
+        //   },
+        // ],
       },
       {
         path: "/bishop/finance",
@@ -171,26 +186,43 @@ export default function Sidebar() {
       },
     ],
     finance: [
-      { path: "/finance/dashboard", name: "Home", icon: <Home size={20} /> },
+      { path: "/finance/dashboard", name: "Finance Dashboard", icon: <Home size={20} /> },
       {
-        path: "/finance/funds",
-        name: "Church Fund Management",
-        icon: <Database size={20} />,
-      },
-      {
-        path: "/finance/stipends",
-        name: "Church Stipends",
+        name: "Donations",
         icon: <DollarSign size={20} />,
+        dropdown: [
+          { path: "/finance/cash-entry", name: "Cash Entry" },
+          { path: "/finance/offering-records", name: "Offering Records" },
+        ],
       },
       {
-        path: "/finance/tasks",
-        name: "Assignment Control",
-        icon: <ClipboardList size={20} />,
+        name: "Expense Management",
+        icon: <Receipt size={20} />,
+        dropdown: [
+          { path: "/finance/expenses", name: "Expense Entry" },
+          { path: "/finance/utilities", name: "Utility Tracker" },
+          { path: "/finance/approval-queue", name: "Approval Queue" },
+        ],
       },
       {
-        path: "/finance/reports",
-        name: "Reports and Analytics",
-        icon: <PieChart size={20} />,
+        name: "Fund Management",
+        icon: <Wallet size={20} />,
+        dropdown: [
+          { path: "/finance/funds", name: "Accounts & Balances" },
+          { path: "/finance/stipends", name: "Stipends" },
+          { path: "/finance/transfers", name: "Transfer Funds" },
+          { path: "/finance/branch-fund-requests", name: "Branch Fund Requests" },
+        ],
+      },
+      {
+        name: "Financial Reports",
+        icon: <Clock size={20} />,
+        dropdown: [
+          { path: "/finance/reports", name: "Statement Reports" },
+          { path: "/finance/donations", name: "Donation Reports" },
+          { path: "/finance/transfer-reports", name: "Transfer Reports" },
+          { path: "/finance/audit-trail", name: "Audit Trail" },
+        ],
       },
     ],
     staff: [
@@ -222,7 +254,19 @@ export default function Sidebar() {
   const menuItems = getMenuItems();
   const roleName = getRoleName();
   // Dropdown open state for sidebar dropdowns (only one open at a time)
-  const [openDropdown, setOpenDropdown] = useState(null);
+  const [openDropdown, setOpenDropdown] = useState(() => {
+    const saved = localStorage.getItem("sidebarOpenDropdown");
+    return saved ? parseInt(saved) : null;
+  });
+
+  useEffect(() => {
+    if (openDropdown !== null) {
+      localStorage.setItem("sidebarOpenDropdown", openDropdown.toString());
+    } else {
+      localStorage.removeItem("sidebarOpenDropdown");
+    }
+  }, [openDropdown]);
+
   return (
     <aside
       className={`${
@@ -314,12 +358,14 @@ export default function Sidebar() {
                       {item.name}
                     </span>
                   )}
-                  <ChevronRight
-                    size={16}
-                    className={`ml-auto transition-transform ${
-                      isDropdownOpen ? "rotate-90" : ""
-                    }`}
-                  />
+                  {!collapsed && (
+                    <ChevronDown
+                      size={16}
+                      className={`ml-auto transition-transform ${
+                        isDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  )}
                 </button>
                 {isDropdownOpen && !collapsed && (
                   <div className="ml-8 mt-1 space-y-1">
@@ -328,12 +374,15 @@ export default function Sidebar() {
                         key={d.path}
                         className={`block w-full text-left px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
                           ${
-                            location.pathname.startsWith(d.path)
+                            location.pathname === d.path
                               ? "bg-white/30 text-white"
                               : "hover:bg-white/10 text-white/80"
                           }
                         `}
-                        onClick={() => navigate(d.path)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(d.path);
+                        }}
                         style={{ fontFamily: font }}
                       >
                         {d.name}

@@ -22,14 +22,23 @@ import BishopTasks from "./pages/bishop/Tasks";
 import BishopAnalytics from "./pages/bishop/Analytics";
 import BishopCounseling from "./pages/bishop/Counseling";
 import Ministries from "./pages/bishop/Ministries";
-import ManageMinistryActivity from "./pages/bishop/Manage_Ministry_Activity";
 
 import RequireBishop from "./routes/RequireBishop";
-import FinanceDashboard from "./pages/finance/FinanceDashboard";
-import FinanceFunds from "./pages/finance/Funds";
-import FinanceStipends from "./pages/finance/Stipends";
-import FinanceTasks from "./pages/finance/Tasks";
-import FinanceReports from "./pages/finance/Reports";
+import FinanceDashboard from "./pages/Finance/FinanceDashboard";
+import FundManagement from "./pages/Finance/FundManagement";
+import FinanceStipends from "./pages/Finance/Stipends";
+import FinanceReports from "./pages/Finance/FinanceReports";
+import DonationReports from "./pages/Finance/DonationReports";
+import ExpenseEntry from "./pages/Finance/ExpenseEntry";
+import InterAccountTransfers from "./pages/Finance/InterAccountTransfers";
+import RequestFund from "./pages/Finance/RequestFund";
+import ApprovalQueue from "./pages/Finance/ApprovalQueue";
+import UtilityTracker from "./pages/Finance/UtilityTracker";
+import TransferReports from "./pages/Finance/TransferReports";
+import FinancialAuditTrail from "./pages/Finance/FinancialAuditTrail";
+import BranchFundRequests from "./pages/Finance/BranchFundRequests";
+import CashEntry from "./pages/Finance/CashEntry";
+import OfferingRecords from "./pages/Finance/OfferingRecords";
 import StaffDashboard from "./pages/staff/StaffDashboard";
 import StaffTasks from "./pages/staff/Tasks";
 import CEODashboard from "./pages/ceo/CEODashboard";
@@ -43,15 +52,6 @@ import Counseling from "./pages/pastor/Counseling";
 import UserManagement from "./pages/pastor/UserManagement";
 import PastorMinistries from "./pages/pastor/Ministries";
 import RequirePastor from "./routes/requirePastor";
-import MinistryApply from "./pages/member/MinistryApply";
-<Route
-  path="/bishop/manage-ministry-activity"
-  element={
-    <RequireBishop>
-      <ManageMinistryActivity />
-    </RequireBishop>
-  }
-/>;
 
 function App() {
   return (
@@ -273,10 +273,20 @@ function App() {
           {/* Finance */}
           <Route path="/finance" element={<FinanceDashboard />} />
           <Route path="/finance/dashboard" element={<FinanceDashboard />} />
-          <Route path="/finance/funds" element={<FinanceFunds />} />
+          <Route path="/finance/funds" element={<FundManagement />} />
+          <Route path="/finance/donations" element={<DonationReports />} />
+          <Route path="/finance/expenses" element={<ExpenseEntry />} />
+          <Route path="/finance/transfers" element={<InterAccountTransfers />} />
+          <Route path="/finance/request-fund" element={<RequestFund />} />
+          <Route path="/finance/approval-queue" element={<ApprovalQueue />} />
+          <Route path="/finance/utilities" element={<UtilityTracker />} />
           <Route path="/finance/stipends" element={<FinanceStipends />} />
-          <Route path="/finance/tasks" element={<FinanceTasks />} />
           <Route path="/finance/reports" element={<FinanceReports />} />
+          <Route path="/finance/transfer-reports" element={<TransferReports />} />
+          <Route path="/finance/audit-trail" element={<FinancialAuditTrail />} />
+          <Route path="/finance/branch-fund-requests" element={<BranchFundRequests />} />
+          <Route path="/finance/cash-entry" element={<CashEntry />} />
+          <Route path="/finance/offering-records" element={<OfferingRecords />} />
 
           {/* Staff */}
           <Route path="/staff" element={<StaffDashboard />} />
@@ -284,11 +294,11 @@ function App() {
           <Route path="/staff/tasks" element={<StaffTasks />} />
           <Route path="/ceo" element={<CEODashboard />} />
 
-          {/* Member (application screens) */}
-          <Route
+          {/* Member (application screens) - Commented out until MinistryApply component is created */}
+          {/* <Route
             path="/member/ministries/apply/:branchMinistryId"
             element={<MinistryApply />}
-          />
+          /> */}
 
           {/* Optional redirect for uppercase */}
           <Route path="/Profile" element={<Navigate to="/profile" replace />} />
