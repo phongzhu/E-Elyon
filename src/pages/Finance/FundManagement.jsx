@@ -10,6 +10,7 @@ const FundManagement = () => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [accountTypeFilter, setAccountTypeFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState('success');
@@ -19,22 +20,26 @@ const FundManagement = () => {
     setModalType(type);
     setShowModal(true);
   };
-  const [branches, setBranches] = useState([]);
-  const [ministries, setMinistries] = useState([]);
+  const [branchMinistries, setBranchMinistries] = useState([]);
+  const [userBranchId, setUserBranchId] = useState(null);
   const [newAccount, setNewAccount] = useState({
     accountName: '',
     accountType: 'Cash',
     accountNumber: '',
-    branchId: '',
     branchMinistryId: '',
     balance: '0'
   });
 
   useEffect(() => {
-    fetchAccounts();
-    fetchBranches();
-    fetchMinistries();
+    fetchUserBranch();
   }, []);
+
+  useEffect(() => {
+    if (userBranchId) {
+      fetchAccounts();
+      fetchBranchMinistries();
+    }
+  }, [userBranchId]);
 
   const fetchAccounts = async () => {
     try {
@@ -48,6 +53,7 @@ const FundManagement = () => {
             ministries!ministry_id(name)
           )
         `)
+        .eq('branch_id', userBranchId)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -58,31 +64,48 @@ const FundManagement = () => {
     }
   };
 
-  const fetchBranches = async () => {
+  const fetchUserBranch = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
-        .from('branches')
-        .select('branch_id, name')
-        .order('name');
-      
+        .from('users')
+        .select(`
+          user_id,
+          users_details!users_user_details_id_fkey(
+            branch_id
+          )
+        `)
+        .eq('auth_user_id', user.id)
+        .limit(1);
+
       if (error) throw error;
-      setBranches(data || []);
+      
+      const currentUser = data?.[0];
+      const branchId = currentUser?.users_details?.branch_id;
+      setUserBranchId(branchId);
     } catch (error) {
-      console.error('Error fetching branches:', error);
+      console.error('Error fetching user branch:', error);
     }
   };
 
-  const fetchMinistries = async () => {
+  const fetchBranchMinistries = async () => {
     try {
       const { data, error } = await supabase
-        .from('ministries')
-        .select('id, name')
-        .order('name');
+        .from('branch_ministries')
+        .select(`
+          branch_ministry_id,
+          ministries!ministry_id(id, name)
+        `)
+        .eq('branch_id', userBranchId)
+        .eq('is_active', true)
+        .order('ministries(name)');
       
       if (error) throw error;
-      setMinistries(data || []);
+      setBranchMinistries(data || []);
     } catch (error) {
-      console.error('Error fetching ministries:', error);
+      console.error('Error fetching branch ministries:', error);
     }
   };
 
@@ -97,7 +120,7 @@ const FundManagement = () => {
           account_name: newAccount.accountName,
           account_type: newAccount.accountType,
           account_number: newAccount.accountNumber || null,
-          branch_id: newAccount.branchId || null,
+          branch_id: userBranchId,
           branch_ministry_id: newAccount.branchMinistryId || null,
           balance: parseFloat(newAccount.balance) || 0,
           is_active: true
@@ -111,7 +134,6 @@ const FundManagement = () => {
         accountName: '',
         accountType: 'Cash',
         accountNumber: '',
-        branchId: '',
         branchMinistryId: '',
         balance: '0'
       });
@@ -135,7 +157,7 @@ const FundManagement = () => {
           account_name: selectedAccount.account_name,
           account_type: selectedAccount.account_type,
           account_number: selectedAccount.account_number || null,
-          branch_id: selectedAccount.branch_id || null,
+          branch_id: selectedAccount.branch_id,
           branch_ministry_id: selectedAccount.branch_ministry_id || null,
           is_active: selectedAccount.is_active
         })
@@ -179,12 +201,17 @@ const FundManagement = () => {
   const cashAccounts = accounts.filter(acc => acc.account_type === 'Cash');
   const totalCash = cashAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance || 0), 0);
 
+  // Filter accounts by type
+  const filteredAccounts = accountTypeFilter === 'all' 
+    ? accounts 
+    : accounts.filter(acc => acc.account_type.toLowerCase() === accountTypeFilter.toLowerCase());
+
   const getAccountIcon = (type) => {
-    switch (type) {
-      case 'Cash': return <Wallet className="text-emerald-600" size={24} />;
-      case 'Bank': return <Building2 className="text-blue-600" size={24} />;
-      case 'Savings': return <DollarSign className="text-indigo-600" size={24} />;
-      case 'Checking': return <CreditCard className="text-purple-600" size={24} />;
+    const typeNormalized = type?.toLowerCase();
+    switch (typeNormalized) {
+      case 'cash': return <Wallet className="text-emerald-600" size={24} />;
+      case 'bank': return <Building2 className="text-blue-600" size={24} />;
+      case 'e-wallet': return <CreditCard className="text-purple-600" size={24} />;
       default: return <Wallet className="text-gray-600" size={24} />;
     }
   };
@@ -234,9 +261,57 @@ const FundManagement = () => {
 
       {/* Accounts List */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">All Accounts</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">All Accounts</h2>
+          
+          {/* Filter Buttons */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-600 mr-2">Filter:</span>
+            <button
+              onClick={() => setAccountTypeFilter('all')}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                accountTypeFilter === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All ({accounts.length})
+            </button>
+            <button
+              onClick={() => setAccountTypeFilter('bank')}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                accountTypeFilter === 'bank'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Bank ({accounts.filter(a => a.account_type.toLowerCase() === 'bank').length})
+            </button>
+            <button
+              onClick={() => setAccountTypeFilter('e-wallet')}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                accountTypeFilter === 'e-wallet'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              E-Wallet ({accounts.filter(a => a.account_type.toLowerCase() === 'e-wallet').length})
+            </button>
+            <button
+              onClick={() => setAccountTypeFilter('cash')}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                accountTypeFilter === 'cash'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Cash ({accounts.filter(a => a.account_type.toLowerCase() === 'cash').length})
+            </button>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {accounts.map(account => (
+          {filteredAccounts.map(account => (
             <div key={account.account_id} className="bg-gradient-to-br from-gray-50 to-white rounded-xl shadow border border-gray-200 p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="bg-white p-3 rounded-xl shadow-sm">
@@ -334,8 +409,7 @@ const FundManagement = () => {
                 >
                   <option value="Cash">Cash</option>
                   <option value="Bank">Bank</option>
-                  <option value="Savings">Savings</option>
-                  <option value="Checking">Checking</option>
+                  <option value="E-wallet">E-wallet</option>
                 </select>
               </div>
 
@@ -351,16 +425,16 @@ const FundManagement = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Branch (Optional)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Ministry (Optional)</label>
                 <select
-                  value={newAccount.branchId}
-                  onChange={(e) => setNewAccount({...newAccount, branchId: e.target.value})}
+                  value={newAccount.branchMinistryId}
+                  onChange={(e) => setNewAccount({...newAccount, branchMinistryId: e.target.value})}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                 >
                   <option value="">None</option>
-                  {branches.map(branch => (
-                    <option key={branch.branch_id} value={branch.branch_id}>
-                      {branch.name}
+                  {branchMinistries.map(bm => (
+                    <option key={bm.branch_ministry_id} value={bm.branch_ministry_id}>
+                      {bm.ministries?.name}
                     </option>
                   ))}
                 </select>

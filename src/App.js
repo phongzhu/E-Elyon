@@ -21,6 +21,7 @@ import BishopFinance from "./pages/bishop/Finance";
 import BishopTasks from "./pages/bishop/Tasks";
 import BishopAnalytics from "./pages/bishop/Analytics";
 import BishopCounseling from "./pages/bishop/Counseling";
+import TransferApprovals from "./pages/bishop/TransferApprovals";
 import Ministries from "./pages/bishop/Ministries";
 
 import RequireBishop from "./routes/RequireBishop";
@@ -36,7 +37,7 @@ import ApprovalQueue from "./pages/Finance/ApprovalQueue";
 import UtilityTracker from "./pages/Finance/UtilityTracker";
 import TransferReports from "./pages/Finance/TransferReports";
 import FinancialAuditTrail from "./pages/Finance/FinancialAuditTrail";
-import BranchFundRequests from "./pages/Finance/BranchFundRequests";
+import TransferApprovalQueue from "./pages/Finance/BranchFundRequests";
 import CashEntry from "./pages/Finance/CashEntry";
 import OfferingRecords from "./pages/Finance/OfferingRecords";
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -192,6 +193,7 @@ function App() {
             }
           />
           <Route path="/bishop/finance" element={<BishopFinance />} />
+          <Route path="/bishop/transfer-approvals" element={<TransferApprovals />} />
           <Route path="/bishop/tasks" element={<BishopTasks />} />
           <Route path="/bishop/analytics" element={<BishopAnalytics />} />
           <Route path="/bishop/counseling" element={<BishopCounseling />} />
@@ -284,7 +286,7 @@ function App() {
           <Route path="/finance/reports" element={<FinanceReports />} />
           <Route path="/finance/transfer-reports" element={<TransferReports />} />
           <Route path="/finance/audit-trail" element={<FinancialAuditTrail />} />
-          <Route path="/finance/branch-fund-requests" element={<BranchFundRequests />} />
+          <Route path="/finance/transfer-approval-queue" element={<TransferApprovalQueue />} />
           <Route path="/finance/cash-entry" element={<CashEntry />} />
           <Route path="/finance/offering-records" element={<OfferingRecords />} />
 

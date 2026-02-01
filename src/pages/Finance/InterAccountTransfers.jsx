@@ -1,37 +1,121 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle2, Calendar, DollarSign, FileText, Building2 } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
+import { supabase } from '../../lib/supabaseClient';
 
 const TransferRevolvingFunds = () => {
     const [formData, setFormData] = useState({
-        date: new Date().toISOString().split('T')[0],
         sourceAccount: '',
         amountPerBranch: '',
-        reference: '',
         purpose: '',
         notes: ''
     });
 
     const [selectedBranches, setSelectedBranches] = useState([]);
+    const [accounts, setAccounts] = useState([]);
+    const [branches, setBranches] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [userBranchId, setUserBranchId] = useState(null);
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
-    const accounts = [
-        { id: 1, name: 'Main Church Account', balance: 2456789.50 },
-        { id: 2, name: 'BDO Checking Account', balance: 856789.25 },
-        { id: 3, name: 'BPI Savings Account', balance: 600000.00 },
-        { id: 4, name: 'Mission Fund', balance: 450000.00 },
-    ];
+    useEffect(() => {
+        fetchUserInfo();
+    }, []);
 
-    const branches = [
-        { id: 1, name: 'Manila Branch', location: 'Manila' },
-        { id: 2, name: 'Quezon City Branch', location: 'Quezon City' },
-        { id: 3, name: 'Makati Branch', location: 'Makati' },
-        { id: 4, name: 'Pasig Branch', location: 'Pasig' },
-        { id: 5, name: 'Caloocan Branch', location: 'Caloocan' },
-        { id: 6, name: 'Taguig Branch', location: 'Taguig' },
-        { id: 7, name: 'Paranaque Branch', location: 'Paranaque' },
-        { id: 8, name: 'Las Pinas Branch', location: 'Las Pinas' },
-    ];
+    useEffect(() => {
+        if (userBranchId) {
+            fetchAccounts();
+            fetchBranches();
+        }
+    }, [userBranchId]);
+
+    const fetchUserInfo = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: userData } = await supabase
+                .from('users')
+                .select(`
+                    user_id,
+                    user_details_id,
+                    users_details!user_details_id(branch_id)
+                `)
+                .eq('auth_user_id', user.id)
+                .limit(1)
+                .single();
+
+            if (userData) {
+                setCurrentUserId(userData.user_id);
+                setUserBranchId(userData.users_details?.branch_id);
+            }
+        } catch (error) {
+            console.error('Error fetching user info:', error);
+        }
+    };
+
+    const fetchAccounts = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('finance_accounts')
+                .select('account_id, account_name, account_type, balance')
+                .eq('is_active', true)
+                .eq('branch_id', userBranchId)
+                .ilike('account_type', 'bank')
+                .order('account_name');
+            
+            if (error) throw error;
+            setAccounts(data || []);
+        } catch (error) {
+            console.error('Error fetching accounts:', error);
+        }
+    };
+
+    const fetchBranches = async () => {
+        try {
+            // Fetch branches with their finance accounts count
+            const { data: branchesData, error: branchesError } = await supabase
+                .from('branches')
+                .select('branch_id, name, city, province')
+                .order('name');
+            
+            if (branchesError) throw branchesError;
+
+            // Get finance accounts count for each branch
+            const { data: accountsData, error: accountsError } = await supabase
+                .from('finance_accounts')
+                .select('branch_id, account_type')
+                .eq('is_active', true);
+            
+            if (accountsError) throw accountsError;
+
+            // Count bank accounts per branch
+            const bankAccountsCount = {};
+            accountsData?.forEach(account => {
+                if (account.account_type?.toLowerCase() === 'bank') {
+                    bankAccountsCount[account.branch_id] = (bankAccountsCount[account.branch_id] || 0) + 1;
+                }
+            });
+
+            // Add bank account info to branches and exclude user's own branch
+            const branchesWithAccounts = branchesData
+                ?.filter(branch => branch.branch_id !== userBranchId) // Exclude user's own branch
+                ?.map(branch => ({
+                    ...branch,
+                    hasBankAccount: (bankAccountsCount[branch.branch_id] || 0) > 0,
+                    bankAccountsCount: bankAccountsCount[branch.branch_id] || 0
+                })) || [];
+
+            setBranches(branchesWithAccounts);
+        } catch (error) {
+            console.error('Error fetching branches:', error);
+        }
+    };
 
     const toggleBranch = (branchId) => {
         if (selectedBranches.includes(branchId)) {
@@ -42,38 +126,103 @@ const TransferRevolvingFunds = () => {
     };
 
     const selectAllBranches = () => {
-        setSelectedBranches(branches.map(b => b.id));
+        setSelectedBranches(branches.map(b => b.branch_id));
     };
 
     const clearAllBranches = () => {
         setSelectedBranches([]);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const totalAmount = parseFloat(formData.amountPerBranch) * selectedBranches.length;
-        const selectedBranchNames = branches.filter(b => selectedBranches.includes(b.id)).map(b => b.name).join(', ');
         
-        console.log('Transfer submitted:', {
-            ...formData,
-            branches: selectedBranchNames,
-            totalAmount
-        });
-        
-        alert(`Revolving funds transfer of ₱${totalAmount.toLocaleString()} distributed successfully to ${selectedBranches.length} branches!`);
-        
-        setFormData({
-            date: new Date().toISOString().split('T')[0],
-            sourceAccount: '',
-            amountPerBranch: '',
-            reference: '',
-            purpose: '',
-            notes: ''
-        });
-        setSelectedBranches([]);
+        if (!canTransfer || selectedBranches.length === 0) {
+            setShowErrorModal(true);
+            setErrorMessage('Cannot process transfer. Please check balance and selected branches.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const totalAmount = parseFloat(formData.amountPerBranch) * selectedBranches.length;
+            const sourceAccount = accounts.find(a => a.account_id === parseInt(formData.sourceAccount));
+
+            // Create transfer records and transactions for each branch (Status: Pending, no reference yet)
+            for (const branchId of selectedBranches) {
+                // 1. Create transfer record with requires_approval = true
+                const { data: transfer, error: transferError } = await supabase
+                    .from('transfers')
+                    .insert({
+                        to_account_id: parseInt(formData.sourceAccount),
+                        amount: parseFloat(formData.amountPerBranch),
+                        transfer_method: formData.purpose,
+                        notes: `${formData.notes} - Branch: ${branches.find(b => b.branch_id === branchId)?.name}`,
+                        requires_approval: true
+                    })
+                    .select()
+                    .single();
+
+                if (transferError) throw transferError;
+
+                // 2. Create debit transaction for source account (Pending, no reference yet)
+                const { error: debitError } = await supabase
+                    .from('transactions')
+                    .insert({
+                        account_id: parseInt(formData.sourceAccount),
+                        transaction_type: 'Transfer Out',
+                        transfer_id: transfer.transfer_id,
+                        amount: -parseFloat(formData.amountPerBranch),
+                        status: 'Pending',
+                        notes: `Transfer to ${branches.find(b => b.branch_id === branchId)?.name}`,
+                        created_by: currentUserId,
+                        branch_id: userBranchId,
+                        reference_id: null
+                    });
+
+                if (debitError) throw debitError;
+
+                // 3. Create credit transaction for destination branch (Pending, no reference yet)
+                const { error: creditError } = await supabase
+                    .from('transactions')
+                    .insert({
+                        account_id: parseInt(formData.sourceAccount),
+                        transaction_type: 'Transfer In',
+                        transfer_id: transfer.transfer_id,
+                        amount: parseFloat(formData.amountPerBranch),
+                        status: 'Pending',
+                        notes: `Transfer from ${sourceAccount?.account_name}`,
+                        created_by: currentUserId,
+                        branch_id: branchId,
+                        reference_id: null
+                    });
+
+                if (creditError) throw creditError;
+            }
+
+            // Note: Balance NOT deducted here - will be deducted upon bishop approval
+            // Reference ID will be generated by PayMongo during approval
+
+            setShowSuccessModal(true);
+            setSuccessMessage(`Transfer request submitted! Total: ₱${totalAmount.toLocaleString()} to ${selectedBranches.length} branches. Awaiting bishop approval.`);
+            
+            // Reset form
+            setFormData({
+                sourceAccount: '',
+                amountPerBranch: '',
+                purpose: '',
+                notes: ''
+            });
+            setSelectedBranches([]);
+        } catch (error) {
+            console.error('Error processing transfer:', error);
+            setShowErrorModal(true);
+            setErrorMessage('Error processing transfer: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const sourceBalance = accounts.find(a => a.name === formData.sourceAccount)?.balance || 0;
+    const sourceBalance = accounts.find(a => a.account_id === parseInt(formData.sourceAccount))?.balance || 0;
     const totalTransferAmount = parseFloat(formData.amountPerBranch || 0) * selectedBranches.length;
     const canTransfer = sourceBalance >= totalTransferAmount && totalTransferAmount > 0;
 
@@ -101,42 +250,26 @@ const TransferRevolvingFunds = () => {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                                        <Calendar className="inline mr-2" size={16} />
-                                        Transfer Date
-                                    </label>
-                                    <input 
-                                        type="date"
-                                        value={formData.date}
-                                        onChange={(e) => setFormData({...formData, date: e.target.value})}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Source Account</label>
-                                    <select
-                                        value={formData.sourceAccount}
-                                        onChange={(e) => setFormData({...formData, sourceAccount: e.target.value})}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors"
-                                        required
-                                    >
-                                        <option value="">Select source account...</option>
-                                        {accounts.map(acc => (
-                                            <option key={acc.id} value={acc.name}>
-                                                {acc.name} (₱{acc.balance.toLocaleString()})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {formData.sourceAccount && (
-                                        <p className="text-xs text-gray-500 mt-2">
-                                            Available: ₱{sourceBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                                        </p>
-                                    )}
-                                </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Source Account</label>
+                                <select
+                                    value={formData.sourceAccount}
+                                    onChange={(e) => setFormData({...formData, sourceAccount: e.target.value})}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors"
+                                    required
+                                >
+                                    <option value="">Select source account...</option>
+                                    {accounts.map(acc => (
+                                        <option key={acc.account_id} value={acc.account_id}>
+                                            {acc.account_name} - {acc.account_type} (₱{parseFloat(acc.balance).toLocaleString()})
+                                        </option>
+                                    ))}
+                                </select>
+                                {formData.sourceAccount && (
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Available: ₱{sourceBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -155,36 +288,23 @@ const TransferRevolvingFunds = () => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Reference Number</label>
-                                    <input 
-                                        type="text"
-                                        value={formData.reference}
-                                        onChange={(e) => setFormData({...formData, reference: e.target.value})}
-                                        placeholder="RVF-XXX"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Purpose</label>
-                                    <select
-                                        value={formData.purpose}
-                                        onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors"
-                                        required
-                                    >
-                                        <option value="">Select purpose...</option>
-                                        <option value="Ministry Operations">Ministry Operations</option>
-                                        <option value="Branch Support">Branch Support</option>
-                                        <option value="Event Funding">Event Funding</option>
-                                        <option value="Outreach Program">Outreach Program</option>
-                                        <option value="Emergency Fund">Emergency Fund</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Purpose</label>
+                                <select
+                                    value={formData.purpose}
+                                    onChange={(e) => setFormData({...formData, purpose: e.target.value})}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors"
+                                    required
+                                >
+                                    <option value="">Select purpose...</option>
+                                    <option value="Revolving Funds">Revolving Funds</option>
+                                    <option value="Ministry Operations">Ministry Operations</option>
+                                    <option value="Branch Support">Branch Support</option>
+                                    <option value="Event Funding">Event Funding</option>
+                                    <option value="Outreach Program">Outreach Program</option>
+                                    <option value="Emergency Fund">Emergency Fund</option>
+                                    <option value="Other">Other</option>
+                                </select>
                             </div>
 
                             <div>
@@ -228,21 +348,36 @@ const TransferRevolvingFunds = () => {
 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {branches.map(branch => {
-                                        const isSelected = selectedBranches.includes(branch.id);
+                                        const isSelected = selectedBranches.includes(branch.branch_id);
+                                        const locationText = [branch.city, branch.province].filter(Boolean).join(', ') || 'N/A';
+                                        const isDisabled = !branch.hasBankAccount;
                                         return (
                                             <button
-                                                key={branch.id}
+                                                key={branch.branch_id}
                                                 type="button"
-                                                onClick={() => toggleBranch(branch.id)}
+                                                onClick={() => !isDisabled && toggleBranch(branch.branch_id)}
+                                                disabled={isDisabled}
                                                 className={`p-4 rounded-xl font-bold text-sm transition-all ${
-                                                    isSelected
+                                                    isDisabled
+                                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                                    : isSelected
                                                     ? 'bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-lg'
                                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                 }`}
                                             >
                                                 <div className="text-center">
                                                     <p className="mb-1">{branch.name}</p>
-                                                    <p className="text-xs opacity-75">{branch.location}</p>
+                                                    <p className="text-xs opacity-75">{locationText}</p>
+                                                    <p className={`text-xs mt-1 font-semibold ${
+                                                        isDisabled ? 'text-red-500' :
+                                                        isSelected ? 'text-white' : 
+                                                        branch.hasBankAccount ? 'text-green-600' : 'text-red-600'
+                                                    }`}>
+                                                        {branch.hasBankAccount 
+                                                            ? `✓ ${branch.bankAccountsCount} Bank Account${branch.bankAccountsCount > 1 ? 's' : ''}` 
+                                                            : '⚠ No Bank Account'
+                                                        }
+                                                    </p>
                                                     {isSelected && <span className="text-lg">✓</span>}
                                                 </div>
                                             </button>
@@ -279,11 +414,20 @@ const TransferRevolvingFunds = () => {
 
                             <button
                                 type="submit"
-                                disabled={!canTransfer || selectedBranches.length === 0}
+                                disabled={!canTransfer || selectedBranches.length === 0 || loading}
                                 className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 rounded-xl font-bold text-lg hover:from-teal-700 hover:to-cyan-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <CheckCircle2 size={20} />
-                                Distribute Funds to {selectedBranches.length} Branch{selectedBranches.length !== 1 ? 'es' : ''}
+                                {loading ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 size={20} />
+                                        Distribute Funds to {selectedBranches.length} Branch{selectedBranches.length !== 1 ? 'es' : ''}
+                                    </>
+                                )}
                             </button>
                         </form>
                     </div>
@@ -315,6 +459,48 @@ const TransferRevolvingFunds = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <div className="text-center">
+                            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                                <CheckCircle2 className="h-6 w-6 text-green-600" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Request Submitted</h3>
+                            <p className="text-sm text-gray-600 mb-6">{successMessage}</p>
+                            <button
+                                onClick={() => setShowSuccessModal(false)}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Error Modal */}
+            {showErrorModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <div className="text-center">
+                            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                                <span className="text-red-600 text-2xl">⚠</span>
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Error</h3>
+                            <p className="text-sm text-gray-600 mb-6">{errorMessage}</p>
+                            <button
+                                onClick={() => setShowErrorModal(false)}
+                                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
             </div>
         </div>

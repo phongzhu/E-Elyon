@@ -137,6 +137,11 @@ export default function Sidebar() {
         icon: <DollarSign size={20} />,
       },
       {
+        path: "/bishop/transfer-approvals",
+        name: "Transfer Approvals",
+        icon: <ArrowLeftRight size={20} />,
+      },
+      {
         path: "/bishop/analytics",
         name: "Reports and Analytics",
         icon: <PieChart size={20} />,
@@ -211,7 +216,7 @@ export default function Sidebar() {
           { path: "/finance/funds", name: "Accounts & Balances" },
           { path: "/finance/stipends", name: "Stipends" },
           { path: "/finance/transfers", name: "Transfer Funds" },
-          { path: "/finance/branch-fund-requests", name: "Branch Fund Requests" },
+          { path: "/finance/transfer-approval-queue", name: "Approval Queue" },
         ],
       },
       {

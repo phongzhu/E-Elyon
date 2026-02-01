@@ -5,13 +5,20 @@ import Header from '../../components/Header';
 import { supabase } from '../../lib/supabaseClient';
 
 const CashEntry = () => {
+    // Helper function to get current Philippine time (UTC+8)
+    const getPhilippineTime = () => {
+        const now = new Date();
+        // Add 8 hours (Philippine timezone offset from UTC)
+        now.setHours(now.getHours() + 8);
+        return now;
+    };
+
     const [formData, setFormData] = useState({
         eventDate: '',
         seriesId: '',
         accountId: '',
         donorName: '',
         amount: '',
-        donationNotes: '',
         transactionNotes: ''
     });
 
@@ -21,6 +28,7 @@ const CashEntry = () => {
     const [recentEntries, setRecentEntries] = useState([]);
     const [loading, setLoading] = useState(false);
     const [totalToday, setTotalToday] = useState(0);
+    const [userBranchId, setUserBranchId] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [modalMessage, setModalMessage] = useState('');
     const [modalType, setModalType] = useState('success'); // 'success' or 'error'
@@ -32,10 +40,47 @@ const CashEntry = () => {
     };
 
     useEffect(() => {
+        fetchUserBranch();
         fetchAccounts();
         fetchEventSeries();
-        fetchRecentEntries();
     }, []);
+
+    useEffect(() => {
+        if (userBranchId !== null) {
+            fetchRecentEntries();
+        }
+    }, [userBranchId]);
+
+    const fetchUserBranch = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Get user_details_id from users table
+            const { data: userRecord } = await supabase
+                .from('users')
+                .select('user_details_id')
+                .eq('auth_user_id', user.id)
+                .limit(1)
+                .single();
+
+            if (!userRecord?.user_details_id) {
+                console.warn('No user_details_id found');
+                return;
+            }
+
+            // Get branch_id from users_details
+            const { data: userDetails } = await supabase
+                .from('users_details')
+                .select('branch_id')
+                .eq('user_details_id', userRecord.user_details_id)
+                .single();
+
+            setUserBranchId(userDetails?.branch_id || null);
+        } catch (error) {
+            console.error('Error fetching user branch:', error);
+        }
+    };
 
     useEffect(() => {
         if (formData.eventDate) {
@@ -62,13 +107,19 @@ const CashEntry = () => {
 
     const fetchEventSeries = async () => {
         try {
+            console.log('Fetching event series...');
+            
             const { data, error } = await supabase
                 .from('event_series')
                 .select('series_id, title, starts_on, ends_on, event_type, location')
-                .eq('is_active', true)
                 .order('starts_on', { ascending: false });
             
-            if (error) throw error;
+            if (error) {
+                console.error('Error fetching event series:', error);
+                throw error;
+            }
+            
+            console.log('Fetched events:', data);
             setEventSeries(data || []);
             setFilteredEvents(data || []);
         } catch (error) {
@@ -83,18 +134,27 @@ const CashEntry = () => {
         }
         
         const filtered = eventSeries.filter(event => {
-            // Direct comparison since starts_on is already a date string (YYYY-MM-DD)
-            return event.starts_on === selectedDate;
+            // Extract just the date part (YYYY-MM-DD) from starts_on in case it has time component
+            const eventDate = event.starts_on ? event.starts_on.split('T')[0] : event.starts_on;
+            return eventDate === selectedDate;
         });
         
         console.log('Selected date:', selectedDate);
+        console.log('All events:', eventSeries);
         console.log('Filtered events:', filtered);
         setFilteredEvents(filtered);
     };
 
     const fetchRecentEntries = async () => {
         try {
-            const { data, error } = await supabase
+            // Get today's date range in Philippine time
+            const phTime = getPhilippineTime();
+            const today = phTime.toISOString().split('T')[0];
+            const startOfDay = `${today}T00:00:00`;
+            const endOfDay = `${today}T23:59:59.999`;
+
+            // Fetch today's entries only, filtered by branch_id
+            let query = supabase
                 .from('donations')
                 .select(`
                     donation_id,
@@ -102,21 +162,36 @@ const CashEntry = () => {
                     donation_date,
                     notes,
                     is_anonymous,
+                    donation_type,
                     event_series(title),
                     transactions!donation_id(
+                        branch_id,
                         finance_accounts(account_name)
                     )
                 `)
-                .order('donation_date', { ascending: false })
-                .limit(10);
+                .gte('donation_date', startOfDay)
+                .lte('donation_date', endOfDay)
+                .order('donation_date', { ascending: false });
+            
+            const { data, error } = await query;
             
             if (error) throw error;
             
-            const entries = data.map(entry => {
+            // Filter by user's branch_id
+            const filteredData = data.filter(entry => {
+                const transaction = Array.isArray(entry.transactions) ? entry.transactions[0] : entry.transactions;
+                // If user has no branch or transaction has no branch, show all
+                if (!userBranchId || !transaction?.branch_id) return true;
+                return transaction.branch_id === userBranchId;
+            });
+            
+            const entries = filteredData.map(entry => {
                 const notesArray = entry.notes?.split('|') || [];
                 const transaction = Array.isArray(entry.transactions) ? entry.transactions[0] : entry.transactions;
+                const donationType = entry.donation_type || notesArray[1] || 'General Donation';
                 return {
                     id: entry.donation_id,
+                    donationDate: entry.donation_date,
                     date: new Date(entry.donation_date).toISOString().split('T')[0],
                     time: new Date(entry.donation_date).toLocaleTimeString('en-US', { 
                         hour: '2-digit', 
@@ -124,18 +199,18 @@ const CashEntry = () => {
                     }),
                     donorName: entry.is_anonymous ? 'Anonymous' : (notesArray[0] || 'Anonymous'),
                     amount: parseFloat(entry.amount),
-                    donationType: notesArray[1] || 'Donation',
+                    donationType,
                     event: entry.event_series?.title || 'N/A',
                     account: transaction?.finance_accounts?.account_name || 'N/A'
                 };
             });
-            
+
+            // Guard against any client-side reordering by re-sorting newest -> oldest
+            entries.sort((a, b) => new Date(b.donationDate) - new Date(a.donationDate));
             setRecentEntries(entries);
             
-            const today = new Date().toISOString().split('T')[0];
-            const todayTotal = entries
-                .filter(entry => entry.date === today)
-                .reduce((sum, entry) => sum + entry.amount, 0);
+            // Calculate today's total from the same data
+            const todayTotal = entries.reduce((sum, entry) => sum + entry.amount, 0);
             setTotalToday(todayTotal);
             
         } catch (error) {
@@ -152,17 +227,32 @@ const CashEntry = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('User not authenticated');
 
+            // Get user record with branch_id from users_details
             const { data: userRecord } = await supabase
                 .from('users')
-                .select('user_id')
-                .eq('email', user.email)
+                .select('user_id, user_details_id')
+                .eq('auth_user_id', user.id)
+                .limit(1)
                 .single();
 
             if (!userRecord) throw new Error('User record not found');
 
+            // Get branch_id from users_details
+            let userBranchId = null;
+            if (userRecord.user_details_id) {
+                const { data: userDetails } = await supabase
+                    .from('users_details')
+                    .select('branch_id')
+                    .eq('user_details_id', userRecord.user_details_id)
+                    .single();
+                
+                userBranchId = userDetails?.branch_id;
+            }
+
             const isAnonymous = !formData.donorName || formData.donorName.trim() === '';
             const donorDisplay = isAnonymous ? 'Anonymous' : formData.donorName;
-            const donationNotesField = `${donorDisplay}|${formData.donationNotes || 'General Donation'}`;
+
+            const donationNotesField = `${donorDisplay}|Cash Entry`;
 
             // Insert into donations table (no account_id - it's in transactions)
             const { data: donation, error: donationError } = await supabase
@@ -171,16 +261,17 @@ const CashEntry = () => {
                     donor_id: null, // Only for online donations
                     is_anonymous: isAnonymous,
                     amount: parseFloat(formData.amount),
-                    donation_date: new Date().toISOString(), // Current timestamp
+                    donation_date: getPhilippineTime().toISOString(), // Philippine time
                     notes: donationNotesField,
-                    series_id: formData.seriesId || null
+                    series_id: formData.seriesId || null,
+                    donation_type: 'Cash' // Always set to 'Cash' for cash entries
                 })
                 .select()
                 .single();
 
             if (donationError) throw donationError;
 
-            // Insert into transactions table
+            // Insert into transactions table with branch_id
             const { error: transactionError } = await supabase
                 .from('transactions')
                 .insert({
@@ -188,9 +279,10 @@ const CashEntry = () => {
                     transaction_type: 'Donation',
                     donation_id: donation.donation_id,
                     amount: parseFloat(formData.amount),
-                    notes: formData.transactionNotes || `Cash Entry: ${formData.donationNotes || 'Donation'} - ${donorDisplay}`,
+                    notes: formData.transactionNotes || `Cash Entry - ${donorDisplay}`,
                     created_by: userRecord.user_id,
-                    transaction_date: new Date().toISOString() // Current timestamp - automatic
+                    branch_id: userBranchId,
+                    transaction_date: getPhilippineTime().toISOString() // Philippine time
                 });
 
             if (transactionError) throw transactionError;
@@ -213,7 +305,6 @@ const CashEntry = () => {
                 accountId: formData.accountId, // Keep account selected
                 donorName: '',
                 amount: '',
-                donationNotes: '',
                 transactionNotes: ''
             });
 
@@ -341,20 +432,6 @@ const CashEntry = () => {
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">
                                     <FileText className="inline mr-2" size={16} />
-                                    Donation Notes (What type of donation)
-                                </label>
-                                <input 
-                                    type="text"
-                                    value={formData.donationNotes}
-                                    onChange={(e) => setFormData({...formData, donationNotes: e.target.value})}
-                                    placeholder="e.g., Tithes, Offerings, Building Fund, Mission Fund"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none transition-colors"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">
-                                    <FileText className="inline mr-2" size={16} />
                                     Transaction Notes (Optional)
                                 </label>
                                 <textarea
@@ -389,7 +466,7 @@ const CashEntry = () => {
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Entries</h3>
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Today's Entries</h3>
                         <div className="space-y-3 max-h-96 overflow-y-auto">
                             {recentEntries.length > 0 ? (
                                 recentEntries.map(entry => (

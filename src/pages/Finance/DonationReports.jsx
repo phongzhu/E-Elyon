@@ -15,6 +15,7 @@ const DonationReports = () => {
     const [monthlyTrend, setMonthlyTrend] = useState([]);
     const [totalDonations, setTotalDonations] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
+    const [percentChange, setPercentChange] = useState(null);
     const [loading, setLoading] = useState(true);
     const [donations, setDonations] = useState([]);
 
@@ -60,6 +61,108 @@ const DonationReports = () => {
         return { startDate: startDate.toISOString(), endDate: endDate.toISOString() };
     };
 
+    const normalizeDonationType = (donation) => {
+        const fallback = (donation.notes?.split('|') || [])[1];
+        return donation.donation_type || fallback || 'General Donation';
+    };
+
+    const formatCurrency = (n) => `₱${(Number(n) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+
+    const computeTrendBuckets = (donationsData, rangeStartIso, rangeEndIso) => {
+        const start = new Date(rangeStartIso);
+        const end = new Date(rangeEndIso);
+        const msDay = 24 * 60 * 60 * 1000;
+        const rangeDays = Math.max(1, Math.ceil((end - start) / msDay));
+
+        // Decide granularity based on selected period + range length
+        let granularity = 'month';
+        if (selectedPeriod === 'weekly') granularity = 'day';
+        else if (selectedPeriod === 'monthly') granularity = 'week';
+        else if (selectedPeriod === 'quarterly') granularity = 'month';
+        else if (selectedPeriod === 'yearly') granularity = 'month';
+        else if (selectedPeriod === 'custom') {
+            if (rangeDays <= 14) granularity = 'day';
+            else if (rangeDays <= 90) granularity = 'week';
+            else granularity = 'month';
+        }
+
+        const buckets = new Map();
+
+        const toKey = (d) => {
+            const date = new Date(d);
+            if (granularity === 'day') {
+                return date.toISOString().split('T')[0];
+            }
+            if (granularity === 'week') {
+                // Week-of-month bucket (1..5)
+                const wk = Math.floor((date.getDate() - 1) / 7) + 1;
+                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-W${wk}`;
+            }
+            // month
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        };
+
+        // Pre-seed buckets so chart is stable even with gaps
+        if (granularity === 'day') {
+            const daysToShow = selectedPeriod === 'weekly' ? 7 : rangeDays;
+            const startPoint = selectedPeriod === 'weekly'
+                ? new Date(end.getTime() - (daysToShow - 1) * msDay)
+                : new Date(start);
+            for (let i = 0; i < daysToShow; i++) {
+                const d = new Date(startPoint.getTime() + i * msDay);
+                buckets.set(d.toISOString().split('T')[0], 0);
+            }
+        } else if (granularity === 'week') {
+            // Up to 5 weeks for the selected month; for custom ranges this is approximate but readable
+            const month = end.getMonth();
+            const year = end.getFullYear();
+            const maxWeeks = 5;
+            for (let wk = 1; wk <= maxWeeks; wk++) {
+                buckets.set(`${year}-${String(month + 1).padStart(2, '0')}-W${wk}`, 0);
+            }
+        } else {
+            const monthsToShow = selectedPeriod === 'quarterly' ? 3 : (selectedPeriod === 'yearly' ? 12 : 6);
+            for (let i = monthsToShow - 1; i >= 0; i--) {
+                const d = new Date(end);
+                d.setMonth(d.getMonth() - i);
+                buckets.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, 0);
+            }
+        }
+
+        donationsData.forEach((donation) => {
+            const key = toKey(donation.donation_date);
+            if (!buckets.has(key)) buckets.set(key, 0);
+            buckets.set(key, buckets.get(key) + parseFloat(donation.amount));
+        });
+
+        const rows = Array.from(buckets.entries()).map(([key, amount]) => {
+            let label = key;
+            if (granularity === 'day') {
+                const d = new Date(key);
+                label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            } else if (granularity === 'week') {
+                const wk = key.split('-W')[1];
+                label = `Week ${wk}`;
+            } else {
+                const [y, m] = key.split('-');
+                const d = new Date(Number(y), Number(m) - 1, 1);
+                label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+            }
+            return { month: label, amount };
+        });
+
+        return rows;
+    };
+
+    const computePrevRange = (startIso, endIso) => {
+        const start = new Date(startIso);
+        const end = new Date(endIso);
+        const delta = end.getTime() - start.getTime();
+        const prevEnd = new Date(start.getTime());
+        const prevStart = new Date(start.getTime() - delta);
+        return { prevStart: prevStart.toISOString(), prevEnd: prevEnd.toISOString() };
+    };
+
     const fetchDonationData = async () => {
         setLoading(true);
         try {
@@ -73,11 +176,13 @@ const DonationReports = () => {
                     amount,
                     donation_date,
                     notes,
-                    is_anonymous
+                    is_anonymous,
+                    donation_type,
+                    event_series(title)
                 `)
                 .gte('donation_date', startDate)
                 .lte('donation_date', endDate)
-                .order('donation_date', { ascending: true });
+                .order('donation_date', { ascending: false });
 
             if (error) throw error;
             setDonations(donationsData || []);
@@ -87,11 +192,30 @@ const DonationReports = () => {
             setTotalDonations(total);
             setTotalCount(donationsData.length);
 
-            // Group by category (from notes field)
+            // Compare to previous period (same duration)
+            try {
+                const { prevStart, prevEnd } = computePrevRange(startDate, endDate);
+                const { data: prevData, error: prevError } = await supabase
+                    .from('donations')
+                    .select('amount')
+                    .gte('donation_date', prevStart)
+                    .lte('donation_date', prevEnd);
+                if (prevError) throw prevError;
+                const prevTotal = (prevData || []).reduce((sum, d) => sum + parseFloat(d.amount), 0);
+                if (prevTotal > 0) {
+                    setPercentChange(((total - prevTotal) / prevTotal) * 100);
+                } else {
+                    setPercentChange(null);
+                }
+            } catch (e) {
+                console.warn('Unable to compute period comparison:', e);
+                setPercentChange(null);
+            }
+
+            // Group by donation type
             const categoryMap = new Map();
             donationsData.forEach(donation => {
-                const notesArray = donation.notes?.split('|') || [];
-                const category = notesArray[1] || 'General Donation';
+                const category = normalizeDonationType(donation);
                 
                 if (categoryMap.has(category)) {
                     const existing = categoryMap.get(category);
@@ -116,32 +240,8 @@ const DonationReports = () => {
 
             setDonationsByCategory(categories);
 
-            // Generate monthly trend for last 6 months
-            const monthlyMap = new Map();
-            const months = [];
-            for (let i = 5; i >= 0; i--) {
-                const d = new Date();
-                d.setMonth(d.getMonth() - i);
-                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                months.push({ key: monthKey, label: monthLabel });
-                monthlyMap.set(monthKey, 0);
-            }
-
-            donationsData.forEach(donation => {
-                const date = new Date(donation.donation_date);
-                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                if (monthlyMap.has(monthKey)) {
-                    monthlyMap.set(monthKey, monthlyMap.get(monthKey) + parseFloat(donation.amount));
-                }
-            });
-
-            const trend = months.map(m => ({
-                month: m.label,
-                amount: monthlyMap.get(m.key)
-            }));
-
-            setMonthlyTrend(trend);
+            // Generate trend buckets that match the selected period
+            setMonthlyTrend(computeTrendBuckets(donationsData, startDate, endDate));
 
         } catch (error) {
             console.error('Error fetching donation data:', error);
@@ -150,9 +250,7 @@ const DonationReports = () => {
         }
     };
 
-    const avgMonthlyDonation = monthlyTrend.length > 0 
-        ? monthlyTrend.reduce((sum, m) => sum + m.amount, 0) / monthlyTrend.length 
-        : 0;
+    const avgDonation = totalCount > 0 ? totalDonations / totalCount : 0;
 
     const handleCustomDateFilter = () => {
         if (dateRange.startDate && dateRange.endDate) {
@@ -166,7 +264,7 @@ const DonationReports = () => {
         // Create CSV content
         let csv = 'Donation Reports\n\n';
         csv += `Period: ${selectedPeriod}\n`;
-        csv += `Total Donations: ₱${totalDonations.toLocaleString('en-PH', { minimumFractionDigits: 2 })}\n`;
+        csv += `Total Donations: ${formatCurrency(totalDonations)}\n`;
         csv += `Total Count: ${totalCount}\n\n`;
         
         csv += 'Category,Amount,Percentage,Count\n';
@@ -174,11 +272,24 @@ const DonationReports = () => {
             csv += `${cat.category},${cat.amount},${cat.percent}%,${cat.count}\n`;
         });
         
-        csv += '\n\nMonthly Trend\n';
-        csv += 'Month,Amount\n';
+        csv += '\n\nTrend\n';
+        csv += 'Bucket,Amount\n';
         monthlyTrend.forEach(m => {
             csv += `${m.month},${m.amount}\n`;
         });
+
+        csv += '\n\nRecent Donations\n';
+        csv += 'Date,Donor,Type,Amount,Notes\n';
+        donations
+            .slice()
+            .sort((a, b) => new Date(b.donation_date) - new Date(a.donation_date))
+            .forEach(d => {
+                const notesArray = d.notes?.split('|') || [];
+                const donorName = d.is_anonymous ? 'Anonymous' : (notesArray[0] || 'Anonymous');
+                const dtype = normalizeDonationType(d);
+                const safeNotes = (d.notes || '').replace(/\n/g, ' ').replace(/\r/g, ' ');
+                csv += `${new Date(d.donation_date).toISOString()},${donorName},${dtype},${d.amount},"${safeNotes}"\n`;
+            });
         
         // Download
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -213,6 +324,14 @@ const DonationReports = () => {
             .sort((a, b) => b.totalAmount - a.totalAmount)
             .slice(0, 5);
     }, [donations]);
+
+    const trendTitle = React.useMemo(() => {
+        if (selectedPeriod === 'weekly') return '7-Day Trend';
+        if (selectedPeriod === 'monthly') return 'This Month (Weekly)';
+        if (selectedPeriod === 'quarterly') return 'Quarter Trend (Monthly)';
+        if (selectedPeriod === 'yearly') return 'Year Trend (Monthly)';
+        return 'Trend';
+    }, [selectedPeriod]);
 
     return (
         <div className="flex min-h-screen bg-gray-50">
@@ -354,23 +473,27 @@ const DonationReports = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-8 rounded-3xl shadow-2xl text-white transform hover:scale-105 transition-all">
                     <p className="text-indigo-100 text-xs font-semibold uppercase mb-3 tracking-wider">Total Donations</p>
-                    <p className="text-5xl font-black mb-3">₱{totalDonations.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-5xl font-black mb-3">{formatCurrency(totalDonations)}</p>
                     <div className="flex items-center gap-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
                         <TrendingUp size={18} />
-                        <span className="text-sm font-bold">+12.5% from last period</span>
+                        <span className="text-sm font-bold">
+                            {percentChange === null
+                                ? 'No previous period data'
+                                : `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(1)}% vs previous period`}
+                        </span>
                     </div>
                 </div>
 
                 <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-purple-100 transform hover:scale-105 transition-all">
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-3 tracking-wider">Average Monthly</p>
-                    <p className="text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">₱{avgMonthlyDonation.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
-                    <p className="text-sm text-gray-600 font-semibold">Based on 7-month average</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-3 tracking-wider">Average Donation</p>
+                    <p className="text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">{formatCurrency(avgDonation)}</p>
+                    <p className="text-sm text-gray-600 font-semibold">Across {totalCount} donations</p>
                 </div>
 
                 <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-purple-100 transform hover:scale-105 transition-all">
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-3 tracking-wider">Total Donors</p>
-                    <p className="text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">{donationsByCategory.reduce((sum, cat) => sum + cat.count, 0)}</p>
-                    <p className="text-sm text-gray-600 font-semibold">Unique transactions</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-3 tracking-wider">Donations Count</p>
+                    <p className="text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">{totalCount}</p>
+                    <p className="text-sm text-gray-600 font-semibold">Transactions in this period</p>
                 </div>
             </div>
 
@@ -379,7 +502,7 @@ const DonationReports = () => {
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
                     <div className="flex items-center gap-3 mb-6">
                         <PieChart className="text-blue-600" size={24} />
-                        <h2 className="text-2xl font-bold text-gray-800">Donations by Category</h2>
+                        <h2 className="text-2xl font-bold text-gray-800">Donations by Type</h2>
                     </div>
                     <div className="space-y-4">
                         {donationsByCategory.map((cat, idx) => (
@@ -415,12 +538,12 @@ const DonationReports = () => {
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
                     <div className="flex items-center gap-3 mb-6">
                         <BarChart3 className="text-blue-600" size={24} />
-                        <h2 className="text-2xl font-bold text-gray-800">7-Month Trend</h2>
+                        <h2 className="text-2xl font-bold text-gray-800">{trendTitle}</h2>
                     </div>
                     <div className="h-64 flex items-end justify-between gap-3">
                         {monthlyTrend.map((month, idx) => {
                             const maxAmount = Math.max(...monthlyTrend.map(m => m.amount));
-                            const height = (month.amount / maxAmount) * 100;
+                            const height = maxAmount > 0 ? (month.amount / maxAmount) * 100 : 0;
                             return (
                                 <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
                                     <div className="relative w-full">
@@ -429,10 +552,10 @@ const DonationReports = () => {
                                             style={{ height: `${height}%` }}
                                         ></div>
                                         <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-xs font-bold text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                            ₱{(month.amount / 1000).toFixed(0)}K
+                                            {formatCurrency(month.amount)}
                                         </span>
                                     </div>
-                                    <span className="text-[9px] text-gray-400 font-bold text-center">{month.month.split(' ')[0]}</span>
+                                    <span className="text-[9px] text-gray-400 font-bold text-center">{month.month}</span>
                                 </div>
                             );
                         })}
@@ -479,6 +602,55 @@ const DonationReports = () => {
                                     </td>
                                 </tr>
                             ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* Recent Donations Table */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 mt-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Recent Donations (Newest First)</h2>
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b-2 border-gray-200">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Donor</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Type</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Event</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {donations
+                                .slice()
+                                .sort((a, b) => new Date(b.donation_date) - new Date(a.donation_date))
+                                .slice(0, 12)
+                                .map((d) => {
+                                    const notesArray = d.notes?.split('|') || [];
+                                    const donorName = d.is_anonymous ? 'Anonymous' : (notesArray[0] || 'Anonymous');
+                                    return (
+                                        <tr key={d.donation_id} className="hover:bg-blue-50 transition-colors">
+                                            <td className="px-6 py-4 text-sm text-gray-700 font-semibold">
+                                                {new Date(d.donation_date).toLocaleString()}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <p className="font-bold text-gray-900">{donorName}</p>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold">
+                                                    {normalizeDonationType(d)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <p className="font-mono font-bold text-lg text-blue-700">{formatCurrency(d.amount)}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {d.event_series?.title || 'N/A'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                         </tbody>
                     </table>
                 </div>
