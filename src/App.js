@@ -32,6 +32,8 @@ import BishopAnalytics from "./pages/bishop/Analytics";
 import BishopCounseling from "./pages/bishop/Counseling";
 import Ministries from "./pages/bishop/Ministries";
 import ManageMinistryActivity from "./pages/bishop/Manage_Ministry_Activity";
+import TransferApprovals from "./pages/bishop/TransferApprovals";
+import ExpenseApprovals from "./pages/bishop/ExpenseApprovals";
 import RequireBishop from "./routes/RequireBishop";
 
 // Pastor
@@ -46,12 +48,22 @@ import PastorMinistries from "./pages/pastor/Ministries";
 import RequirePastor from "./routes/requirePastor";
 
 // Finance role
-import FinanceDashboard from "./pages/finance/FinanceDashboard";
-import FinanceAccounts from "./pages/finance/FinanceAccounts";
-import FinanceFunds from "./pages/finance/Funds";
-import FinanceStipends from "./pages/finance/Stipends";
-import FinanceTasks from "./pages/finance/Tasks";
-import FinanceReports from "./pages/finance/Reports";
+import FinanceDashboard from "./pages/Finance/FinanceDashboard";
+import CashEntry from "./pages/Finance/CashEntry";
+import OfferingRecords from "./pages/Finance/OfferingRecords";
+import ExpenseEntry from "./pages/Finance/ExpenseEntry";
+import UtilityTracker from "./pages/Finance/UtilityTracker";
+import ApprovalQueue from "./pages/Finance/ApprovalQueue";
+import FundManagement from "./pages/Finance/FundManagement";
+import Stipends from "./pages/Finance/Stipends";
+import InterAccountTransfers from "./pages/Finance/InterAccountTransfers";
+import BranchFundRequests from "./pages/Finance/BranchFundRequests";
+import FinanceReports from "./pages/Finance/FinanceReports";
+import DonationReports from "./pages/Finance/DonationReports";
+import TransferReports from "./pages/Finance/TransferReports";
+import FinancialAuditTrail from "./pages/Finance/FinancialAuditTrail";
+import RequestFund from "./pages/Finance/RequestFund";
+import PayMongoLogs from "./pages/Finance/PayMongoLogs";
 
 // Staff / CEO
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -209,6 +221,8 @@ function App() {
 
           <Route path="/bishop/finance" element={<BishopFinance />} />
           <Route path="/bishop/finance-accounts" element={<BishopFinanceAccounts />} />
+          <Route path="/bishop/transfer-approvals" element={<TransferApprovals />} />
+          <Route path="/bishop/expense-approvals" element={<ExpenseApprovals />} />
           <Route path="/bishop/tasks" element={<BishopTasks />} />
           <Route path="/bishop/analytics" element={<BishopAnalytics />} />
           <Route path="/bishop/counseling" element={<BishopCounseling />} />
@@ -290,11 +304,30 @@ function App() {
           {/* Finance */}
           <Route path="/finance" element={<FinanceDashboard />} />
           <Route path="/finance/dashboard" element={<FinanceDashboard />} />
-          <Route path="/finance/accounts" element={<FinanceAccounts />} />
-          <Route path="/finance/funds" element={<FinanceFunds />} />
-          <Route path="/finance/stipends" element={<FinanceStipends />} />
-          <Route path="/finance/tasks" element={<FinanceTasks />} />
-          <Route path="/finance/reports" element={<FinanceReports />} />
+          
+          {/* Donations */}
+          <Route path="/finance/cash-entry" element={<CashEntry />} />
+          <Route path="/finance/offering-records" element={<OfferingRecords />} />
+          
+          {/* Expense Management */}
+          <Route path="/finance/expense-entry" element={<ExpenseEntry />} />
+          <Route path="/finance/utility-tracker" element={<UtilityTracker />} />
+          <Route path="/finance/approval-queue" element={<ApprovalQueue />} />
+          
+          {/* Fund Management */}
+          <Route path="/finance/accounts-balances" element={<FundManagement />} />
+          <Route path="/finance/stipends" element={<Stipends />} />
+          <Route path="/finance/transfer-funds" element={<InterAccountTransfers />} />
+          <Route path="/finance/branch-fund-requests" element={<BranchFundRequests />} />
+          <Route path="/finance/fund-management" element={<FundManagement />} />
+          <Route path="/finance/request-fund" element={<RequestFund />} />
+          
+          {/* Financial Reports */}
+          <Route path="/finance/statement-reports" element={<FinanceReports />} />
+          <Route path="/finance/donation-reports" element={<DonationReports />} />
+          <Route path="/finance/transfer-reports" element={<TransferReports />} />
+          <Route path="/finance/audit-trail" element={<FinancialAuditTrail />} />
+          <Route path="/finance/paymongo-logs" element={<PayMongoLogs />} />
 
           {/* Staff */}
           <Route path="/staff" element={<StaffDashboard />} />

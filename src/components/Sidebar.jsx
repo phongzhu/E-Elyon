@@ -20,6 +20,7 @@ import {
   Wallet,
   Layers,
   ListChecks,
+  Receipt,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -164,6 +165,16 @@ export default function Sidebar() {
           icon: <Wallet size={sizes.icon} />,
         },
         {
+          path: "/bishop/transfer-approvals",
+          name: "Transfer Approvals",
+          icon: <ClipboardList size={sizes.icon} />,
+        },
+        {
+          path: "/bishop/expense-approvals",
+          name: "Expense Approvals",
+          icon: <Receipt size={sizes.icon} />,
+        },
+        {
           path: "/bishop/analytics",
           name: "Reports and Analytics",
           icon: <PieChart size={sizes.icon} />,
@@ -221,33 +232,97 @@ export default function Sidebar() {
       finance: [
         {
           path: "/finance/dashboard",
-          name: "Home",
+          name: "Finance Dashboard",
           icon: <Home size={sizes.icon} />,
         },
         {
-          path: "/finance/accounts",
-          name: "Finance Accounts",
-          icon: <Wallet size={sizes.icon} />,
-        },
-        {
-          path: "/finance/funds",
-          name: "Church Fund Management",
-          icon: <Database size={sizes.icon} />,
-        },
-        {
-          path: "/finance/stipends",
-          name: "Church Stipends",
+          name: "Donations",
           icon: <DollarSign size={sizes.icon} />,
+          dropdown: [
+            {
+              path: "/finance/cash-entry",
+              name: "Cash Entry",
+              icon: <DollarSign size={sizes.icon} />,
+            },
+            {
+              path: "/finance/offering-records",
+              name: "Offering Records",
+              icon: <FileText size={sizes.icon} />,
+            },
+          ],
         },
         {
-          path: "/finance/tasks",
-          name: "Assignment Control",
+          name: "Expense Management",
           icon: <ClipboardList size={sizes.icon} />,
+          dropdown: [
+            {
+              path: "/finance/expense-entry",
+              name: "Expense Entry",
+              icon: <FileText size={sizes.icon} />,
+            },
+            {
+              path: "/finance/utility-tracker",
+              name: "Utility Tracker",
+              icon: <Layers size={sizes.icon} />,
+            },
+            {
+              path: "/finance/approval-queue",
+              name: "Approval Queue",
+              icon: <ListChecks size={sizes.icon} />,
+            },
+          ],
         },
         {
-          path: "/finance/reports",
-          name: "Reports and Analytics",
+          name: "Fund Management",
+          icon: <Wallet size={sizes.icon} />,
+          dropdown: [
+            {
+              path: "/finance/accounts-balances",
+              name: "Accounts & Balances",
+              icon: <Wallet size={sizes.icon} />,
+            },
+            {
+              path: "/finance/stipends",
+              name: "Stipends",
+              icon: <DollarSign size={sizes.icon} />,
+            },
+            {
+              path: "/finance/transfer-funds",
+              name: "Transfer Funds",
+              icon: <Database size={sizes.icon} />,
+            },
+            {
+              path: "/finance/branch-fund-requests",
+              name: "Branch Fund Requests",
+              icon: <ClipboardList size={sizes.icon} />,
+            },
+          ],
+        },
+        {
+          name: "Financial Reports",
           icon: <PieChart size={sizes.icon} />,
+          dropdown: [
+            {
+              path: "/finance/statement-reports",
+              name: "Statement Reports",
+              icon: <FileText size={sizes.icon} />,
+            },
+            {
+              path: "/finance/donation-reports",
+              name: "Donation Reports",
+              icon: <PieChart size={sizes.icon} />,
+            },
+            {
+              path: "/finance/transfer-reports",
+              name: "Transfer Reports",
+              icon: <Database size={sizes.icon} />,
+            },
+            {
+              path: "/finance/audit-trail",
+              name: "Audit Trail",
+              icon: <FileText size={sizes.icon} />,
+            },
+          ],
         },
       ],
 
