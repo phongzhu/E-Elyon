@@ -310,23 +310,23 @@ const FinanceReports = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       <Sidebar />
       
       <div className="flex flex-col flex-1">
         <Header />
         
-        <div className="flex-1 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-10 overflow-y-auto">
+        <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
           {/* Header */}
           <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">Financial Reports</h1>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] bg-clip-text text-transparent mb-2">Financial Reports</h1>
           <p className="text-gray-600 font-medium">Comprehensive financial analysis and insights</p>
         </div>
         <div className="flex gap-3">
           <button 
             onClick={exportToPDF}
-            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg"
+            className="flex items-center gap-2 bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white px-6 py-3 rounded-xl font-bold hover:from-[#153d24] hover:to-[#236438] transition-all shadow-lg"
           >
             <Download size={18} />
             Export Report

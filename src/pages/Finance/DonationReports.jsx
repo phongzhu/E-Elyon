@@ -196,48 +196,54 @@ const DonationReports = () => {
             const { startDate, endDate } = getDateRange();
             const branchId = currentUser.users_details.branch_id;
 
-            // Fetch all donations from transactions table for this branch
+            // Fetch all donations with their transactions for this branch
             const { data: donationsData, error } = await supabase
-                .from('transactions')
+                .from('donations')
                 .select(`
-                    transaction_id,
+                    donation_id,
                     amount,
-                    transaction_date,
-                    branch_id,
-                    donations!transactions_donation_id_fkey(
-                        donation_id,
-                        donation_date,
-                        notes,
-                        is_anonymous,
-                        donation_type
+                    donation_date,
+                    notes,
+                    is_anonymous,
+                    donation_type,
+                    donor_id,
+                    users!donations_donor_id_fkey(
+                        user_id,
+                        users_details!users_user_details_id_fkey(
+                            first_name,
+                            middle_name,
+                            last_name
+                        )
+                    ),
+                    transactions!inner(
+                        transaction_id,
+                        branch_id
                     )
                 `)
-                .eq('branch_id', branchId)
-                .not('donation_id', 'is', null)
-                .gte('transaction_date', startDate)
-                .lte('transaction_date', endDate)
-                .order('transaction_date', { ascending: false });
+                .eq('transactions.branch_id', branchId)
+                .gte('donation_date', startDate)
+                .lte('donation_date', endDate)
+                .order('donation_date', { ascending: false });
 
             if (error) throw error;
             setDonations(donationsData || []);
 
             // Calculate totals
-            const total = donationsData.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+            const total = (donationsData || []).reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
             setTotalDonations(total);
-            setTotalCount(donationsData.length);
+            setTotalCount((donationsData || []).length);
 
             // Compare to previous period (same duration)
             try {
                 const { prevStart, prevEnd } = computePrevRange(startDate, endDate);
                 const { data: prevData, error: prevError } = await supabase
-                    .from('transactions')
-                    .select('amount')
-                    .eq('branch_id', branchId)
-                    .not('donation_id', 'is', null)
-                    .gte('transaction_date', prevStart)
-                    .lte('transaction_date', prevEnd);
+                    .from('donations')
+                    .select('amount, transactions!inner(branch_id)')
+                    .eq('transactions.branch_id', branchId)
+                    .gte('donation_date', prevStart)
+                    .lte('donation_date', prevEnd);
                 if (prevError) throw prevError;
-                const prevTotal = (prevData || []).reduce((sum, d) => sum + parseFloat(d.amount), 0);
+                const prevTotal = (prevData || []).reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
                 if (prevTotal > 0) {
                     setPercentChange(((total - prevTotal) / prevTotal) * 100);
                 } else {
@@ -248,22 +254,20 @@ const DonationReports = () => {
                 setPercentChange(null);
             }
 
-            // Group by donation type from transactions
+            // Group by donation type
             const categoryMap = new Map();
-            donationsData.forEach(txn => {
-                const donation = txn.donations;
-                if (!donation) return;
+            (donationsData || []).forEach(donation => {
                 const category = normalizeDonationType(donation);
                 
                 if (categoryMap.has(category)) {
                     const existing = categoryMap.get(category);
                     categoryMap.set(category, {
-                        amount: existing.amount + parseFloat(txn.amount),
+                        amount: existing.amount + parseFloat(donation.amount || 0),
                         count: existing.count + 1
                     });
                 } else {
                     categoryMap.set(category, {
-                        amount: parseFloat(txn.amount),
+                        amount: parseFloat(donation.amount || 0),
                         count: 1
                     });
                 }
@@ -279,7 +283,7 @@ const DonationReports = () => {
             setDonationsByCategory(categories);
 
             // Generate trend buckets that match the selected period
-            setMonthlyTrend(computeTrendBuckets(donationsData, startDate, endDate));
+            setMonthlyTrend(computeTrendBuckets(donationsData || [], startDate, endDate));
 
         } catch (error) {
             console.error('Error fetching donation data:', error);
@@ -342,17 +346,28 @@ const DonationReports = () => {
     const topDonors = React.useMemo(() => {
         const donorMap = new Map();
         donations.forEach(donation => {
-            const notesArray = donation.notes?.split('|') || [];
-            const donorName = donation.is_anonymous ? 'Anonymous' : (notesArray[0] || 'Anonymous');
+            let donorName = 'Anonymous';
+            
+            if (!donation.is_anonymous) {
+                if (donation.users?.users_details) {
+                    const details = donation.users.users_details;
+                    donorName = `${details.first_name || ''} ${details.middle_name || ''} ${details.last_name || ''}`.trim();
+                } else {
+                    // Fallback to notes if user details not available
+                    const notesArray = donation.notes?.split('|') || [];
+                    donorName = notesArray[0] || 'Anonymous';
+                }
+            }
+            
             if (donorMap.has(donorName)) {
                 const existing = donorMap.get(donorName);
                 donorMap.set(donorName, {
-                    totalAmount: existing.totalAmount + parseFloat(donation.amount),
+                    totalAmount: existing.totalAmount + parseFloat(donation.amount || 0),
                     frequency: existing.frequency + 1
                 });
             } else {
                 donorMap.set(donorName, {
-                    totalAmount: parseFloat(donation.amount),
+                    totalAmount: parseFloat(donation.amount || 0),
                     frequency: 1
                 });
             }
@@ -398,7 +413,7 @@ const DonationReports = () => {
                     <button 
                         onClick={exportToExcel}
                         disabled={loading}
-                        className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
+                        className="flex items-center gap-2 bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white px-6 py-3 rounded-xl font-bold hover:from-[#153d24] hover:to-[#236438] transition-all shadow-lg disabled:opacity-50"
                     >
                         <Download size={18} />
                         {loading ? 'Loading...' : 'Export Excel'}
@@ -418,7 +433,7 @@ const DonationReports = () => {
                             onClick={() => { setSelectedPeriod('weekly'); setShowCustomDateRange(false); }}
                             className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                 selectedPeriod === 'weekly' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' 
+                                ? 'bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white shadow-md' 
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
@@ -428,7 +443,7 @@ const DonationReports = () => {
                             onClick={() => { setSelectedPeriod('monthly'); setShowCustomDateRange(false); }}
                             className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                 selectedPeriod === 'monthly' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' 
+                                ? 'bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white shadow-md' 
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
@@ -438,7 +453,7 @@ const DonationReports = () => {
                             onClick={() => { setSelectedPeriod('quarterly'); setShowCustomDateRange(false); }}
                             className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                 selectedPeriod === 'quarterly' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' 
+                                ? 'bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white shadow-md' 
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
@@ -448,7 +463,7 @@ const DonationReports = () => {
                             onClick={() => { setSelectedPeriod('yearly'); setShowCustomDateRange(false); }}
                             className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                 selectedPeriod === 'yearly' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' 
+                                ? 'bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white shadow-md' 
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
@@ -458,7 +473,7 @@ const DonationReports = () => {
                             onClick={() => { setShowCustomDateRange(!showCustomDateRange); setSelectedPeriod('custom'); }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                 selectedPeriod === 'custom' 
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md' 
+                                ? 'bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white shadow-md' 
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
@@ -492,7 +507,7 @@ const DonationReports = () => {
                             </div>
                             <button
                                 onClick={handleCustomDateFilter}
-                                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:from-indigo-700 hover:to-purple-700 transition-all"
+                                className="px-6 py-2.5 bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white rounded-xl font-bold hover:from-[#153d24] hover:to-[#236438] transition-all"
                             >
                                 Apply Filter
                             </button>
@@ -664,35 +679,53 @@ const DonationReports = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {donations
-                                .slice()
-                                .sort((a, b) => new Date(b.donation_date) - new Date(a.donation_date))
-                                .slice(0, 12)
-                                .map((d) => {
-                                    const notesArray = d.notes?.split('|') || [];
-                                    const donorName = d.is_anonymous ? 'Anonymous' : (notesArray[0] || 'Anonymous');
-                                    return (
-                                        <tr key={d.donation_id} className="hover:bg-blue-50 transition-colors">
-                                            <td className="px-6 py-4 text-sm text-gray-700 font-semibold">
-                                                {new Date(d.donation_date).toLocaleString()}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <p className="font-bold text-gray-900">{donorName}</p>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold">
-                                                    {normalizeDonationType(d)}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <p className="font-mono font-bold text-lg text-blue-700">{formatCurrency(d.amount)}</p>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {d.event_series?.title || 'N/A'}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                            {donations.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                                        No donations found for this period
+                                    </td>
+                                </tr>
+                            ) : (
+                                donations
+                                    .slice()
+                                    .sort((a, b) => new Date(b.donation_date) - new Date(a.donation_date))
+                                    .slice(0, 12)
+                                    .map((d) => {
+                                        let donorName = 'Anonymous';
+                                        
+                                        if (!d.is_anonymous) {
+                                            if (d.users?.users_details) {
+                                                const details = d.users.users_details;
+                                                donorName = `${details.first_name || ''} ${details.middle_name || ''} ${details.last_name || ''}`.trim();
+                                            } else {
+                                                const notesArray = d.notes?.split('|') || [];
+                                                donorName = notesArray[0] || 'Anonymous';
+                                            }
+                                        }
+                                        
+                                        return (
+                                            <tr key={d.donation_id} className="hover:bg-blue-50 transition-colors">
+                                                <td className="px-6 py-4 text-sm text-gray-700 font-semibold">
+                                                    {new Date(d.donation_date).toLocaleString()}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <p className="font-bold text-gray-900">{donorName}</p>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold">
+                                                        {normalizeDonationType(d)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <p className="font-mono font-bold text-lg text-blue-700">{formatCurrency(d.amount)}</p>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-600">
+                                                    N/A
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                            )}
                         </tbody>
                     </table>
                 </div>

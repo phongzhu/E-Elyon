@@ -64,6 +64,7 @@ import TransferReports from "./pages/Finance/TransferReports";
 import FinancialAuditTrail from "./pages/Finance/FinancialAuditTrail";
 import RequestFund from "./pages/Finance/RequestFund";
 import PayMongoLogs from "./pages/Finance/PayMongoLogs";
+import BudgetProposal from "./pages/Finance/BudgetProposal";
 
 // Staff / CEO
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -328,6 +329,7 @@ function App() {
           <Route path="/finance/transfer-reports" element={<TransferReports />} />
           <Route path="/finance/audit-trail" element={<FinancialAuditTrail />} />
           <Route path="/finance/paymongo-logs" element={<PayMongoLogs />} />
+          <Route path="/finance/budget-proposal" element={<BudgetProposal />} />
 
           {/* Staff */}
           <Route path="/staff" element={<StaffDashboard />} />

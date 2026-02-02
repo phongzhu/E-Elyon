@@ -193,28 +193,30 @@ const UtilityTracker = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-gray-50 to-yellow-50 p-10 overflow-y-auto">
-                    <div className="flex justify-between items-start mb-8">
-                        <div>
-                            <h1 className="text-4xl font-bold text-gray-900 mb-2">Expense Tracker</h1>
-                            <p className="text-gray-500">Monitor and compare expenses month-over-month</p>
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
+                    <div className="bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] rounded-2xl p-6 text-white shadow-xl mb-8">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h1 className="text-4xl font-bold mb-2">Expense Tracker</h1>
+                                <p className="text-green-100">Monitor and compare expenses month-over-month</p>
+                            </div>
+                            <button className="flex items-center gap-2 bg-white text-[#1a4d2e] px-6 py-3 rounded-xl font-bold hover:bg-green-50 transition-all shadow-lg">
+                                <Download size={18} />
+                                Export Report
+                            </button>
                         </div>
-                        <button className="flex items-center gap-2 bg-yellow-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-yellow-700 transition-all shadow-lg">
-                            <Download size={18} />
-                            Export Report
-                        </button>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-8">
+                    <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 p-6 mb-8">
                         <div className="flex flex-wrap items-center gap-4 mb-4">
                             <div className="flex items-center gap-3">
-                                <Filter size={20} className="text-orange-600" />
+                                <Filter size={20} className="text-[#1a4d2e]" />
                                 <span className="font-bold text-gray-700">Select Expense Categories:</span>
                             </div>
                             <button onClick={selectAll} className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all">
@@ -234,7 +236,7 @@ const UtilityTracker = () => {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder="Search expense categories..."
-                                    className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:outline-none transition-colors font-medium text-gray-700"
+                                    className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:border-[#1a4d2e] focus:ring-2 focus:ring-[#1a4d2e] focus:outline-none transition-colors font-medium text-gray-700"
                                 />
                                 {searchQuery && (
                                     <button
@@ -262,15 +264,15 @@ const UtilityTracker = () => {
                                                         setSearchQuery('');
                                                     }}
                                                     className={`px-4 py-3 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0 ${
-                                                        isSelected ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50'
+                                                        isSelected ? 'bg-green-50 hover:bg-green-100' : 'hover:bg-gray-50'
                                                     }`}
                                                 >
                                                     <div className="flex items-center justify-between">
-                                                        <span className={`font-medium ${isSelected ? 'text-orange-700' : 'text-gray-700'}`}>
+                                                        <span className={`font-medium ${isSelected ? 'text-[#1a4d2e]' : 'text-gray-700'}`}>
                                                             {utility.category_name}
                                                         </span>
                                                         {isSelected && (
-                                                            <span className="text-orange-600 font-bold">✓</span>
+                                                            <span className="text-[#1a4d2e] font-bold">✓</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -293,7 +295,7 @@ const UtilityTracker = () => {
                                 {getFilteredUtilities().map(utility => (
                                     <div
                                         key={utility.category_id}
-                                        className="flex items-center gap-2 px-3 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-semibold"
+                                        className="flex items-center gap-2 px-3 py-2 bg-green-100 text-[#1a4d2e] rounded-lg text-sm font-semibold"
                                     >
                                         {utility.category_name}
                                         <button
@@ -310,7 +312,7 @@ const UtilityTracker = () => {
                         <div className="mt-6 pt-6 border-t border-gray-200">
                             <button
                                 onClick={() => setShowFilter(!showFilter)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm bg-orange-100 text-orange-700 hover:bg-orange-200 transition-all"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm bg-green-100 text-[#1a4d2e] hover:bg-green-200 transition-all"
                             >
                                 <Calendar size={16} />
                                 {showFilter ? 'Hide' : 'Show'} Date Range Filter
@@ -333,7 +335,7 @@ const UtilityTracker = () => {
                                             type="date"
                                             value={dateRange.endDate}
                                             onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#1a4d2e] focus:border-[#1a4d2e]"
                                         />
                                     </div>
                                     <button
@@ -356,7 +358,7 @@ const UtilityTracker = () => {
                                 const trend = calculateTrend(utility.category_name);
 
                                 return (
-                                    <div key={utility.category_id} className="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-100">
+                                    <div key={utility.category_id} className="bg-white rounded-2xl p-6 shadow-lg border-2 border-green-200">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className={`p-3 rounded-xl bg-${iconConfig.color}-100`}>
                                                 <Icon size={24} className={`text-${iconConfig.color}-600`} />
@@ -378,7 +380,7 @@ const UtilityTracker = () => {
                     )}
 
                     {/* 12-Month Comparison Table */}
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 overflow-hidden">
                         <div className="p-6 border-b border-gray-200">
                             <h2 className="text-xl font-bold text-gray-900">12-Month Comparison</h2>
                             <p className="text-sm text-gray-500 mt-1">Expense breakdown by month - Showing last 12 months</p>
@@ -448,7 +450,7 @@ const UtilityTracker = () => {
 
                     {/* Month-over-Month Comparison */}
                     {!loading && utilityData.length > 1 && (
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden mt-8">
+                        <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 overflow-hidden mt-8">
                             <div className="p-6 border-b border-gray-200">
                                 <h2 className="text-xl font-bold text-gray-900">Month-over-Month Changes</h2>
                                 <p className="text-sm text-gray-500 mt-1">Compare current month vs previous month</p>
@@ -525,9 +527,9 @@ const UtilityTracker = () => {
 
                     {/* Chart Visualization */}
                     {!loading && utilityData.length > 0 && selectedUtilities.length > 0 && (
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mt-8">
+                        <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 p-6 mt-8">
                             <div className="flex items-center gap-3 mb-6">
-                                <BarChart3 size={24} className="text-orange-600" />
+                                <BarChart3 size={24} className="text-[#1a4d2e]" />
                                 <div>
                                     <h2 className="text-xl font-bold text-gray-900">Visual Trend Comparison</h2>
                                     <p className="text-sm text-gray-500">Bar chart showing expense trends across months</p>

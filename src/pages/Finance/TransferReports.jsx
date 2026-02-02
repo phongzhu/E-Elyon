@@ -204,17 +204,17 @@ const TransferReports = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 p-10 overflow-y-auto">
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
             {/* Header */}
             <div className="flex justify-between items-start mb-8">
                 <div>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">Transfer Funds Reports</h1>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] bg-clip-text text-transparent mb-2">Transfer Funds Reports</h1>
                     <p className="text-gray-600 font-medium">Complete history of revolving fund transfers to branches</p>
                 </div>
                 <div className="flex gap-3">
@@ -222,7 +222,7 @@ const TransferReports = () => {
                         onClick={() => setShowDateFilter(!showDateFilter)}
                         className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
                             showDateFilter 
-                            ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg' 
+                            ? 'bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white shadow-lg' 
                             : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-violet-500'
                         }`}
                     >

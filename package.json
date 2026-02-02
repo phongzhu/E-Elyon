@@ -11,16 +11,18 @@
     "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
     "jspdf": "^3.0.4",
-    "jspdf-autotable": "^5.0.2",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.553.0",
     "maplibre-gl": "^4.7.1",
+    "openai": "^6.17.0",
     "radar-sdk-js": "^4.5.8",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.9.5",
     "react-scripts": "^5.0.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",

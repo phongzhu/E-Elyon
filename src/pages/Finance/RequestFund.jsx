@@ -133,13 +133,13 @@ const RequestFund = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-gray-50 to-blue-50 p-10 overflow-y-auto">
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
             <div className="mb-8">
                 <h1 className="text-4xl font-bold text-gray-900 mb-2">Fund Request</h1>
                 <p className="text-gray-500">Submit and manage fund requests for church activities</p>

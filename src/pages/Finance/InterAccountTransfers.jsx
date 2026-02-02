@@ -227,24 +227,24 @@ const TransferRevolvingFunds = () => {
     const canTransfer = sourceBalance >= totalTransferAmount && totalTransferAmount > 0;
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 p-10 overflow-y-auto">
-            <div className="mb-8">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent mb-2">Transfer Revolving Funds</h1>
-                <p className="text-gray-600 font-medium">Distribute funds to multiple branches in one transaction</p>
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
+            <div className="bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] rounded-2xl p-6 text-white shadow-xl mb-8">
+                <h1 className="text-4xl font-bold mb-2">Transfer Revolving Funds</h1>
+                <p className="text-green-100">Distribute funds to multiple branches in one transaction</p>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <div className="xl:col-span-2 space-y-6">
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+                    <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 p-8">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-teal-100 p-3 rounded-xl">
-                                <Send className="text-teal-700" size={24} />
+                            <div className="bg-green-100 p-3 rounded-xl">
+                                <Send className="text-[#1a4d2e]" size={24} />
                             </div>
                             <h2 className="text-2xl font-bold text-gray-800">New Revolving Fund Transfer</h2>
                         </div>
@@ -255,7 +255,7 @@ const TransferRevolvingFunds = () => {
                                 <select
                                     value={formData.sourceAccount}
                                     onChange={(e) => setFormData({...formData, sourceAccount: e.target.value})}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#1a4d2e] focus:ring-2 focus:ring-[#1a4d2e] focus:outline-none transition-colors"
                                     required
                                 >
                                     <option value="">Select source account...</option>
@@ -283,7 +283,7 @@ const TransferRevolvingFunds = () => {
                                     value={formData.amountPerBranch}
                                     onChange={(e) => setFormData({...formData, amountPerBranch: e.target.value})}
                                     placeholder="0.00"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors text-2xl font-bold"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#1a4d2e] focus:ring-2 focus:ring-[#1a4d2e] focus:outline-none transition-colors text-2xl font-bold"
                                     required
                                 />
                             </div>
@@ -317,7 +317,7 @@ const TransferRevolvingFunds = () => {
                                     onChange={(e) => setFormData({...formData, notes: e.target.value})}
                                     placeholder="Add any additional information..."
                                     rows="3"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:outline-none transition-colors resize-none"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#1a4d2e] focus:ring-2 focus:ring-[#1a4d2e] focus:outline-none transition-colors resize-none"
                                 />
                             </div>
 
@@ -361,7 +361,7 @@ const TransferRevolvingFunds = () => {
                                                     isDisabled
                                                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
                                                     : isSelected
-                                                    ? 'bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-lg'
+                                                    ? 'bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] text-white shadow-lg'
                                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                 }`}
                                             >
@@ -388,7 +388,7 @@ const TransferRevolvingFunds = () => {
 
                             {/* Transfer Summary */}
                             {selectedBranches.length > 0 && formData.amountPerBranch && (
-                                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-6 rounded-xl border-2 border-teal-200">
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border-2 border-green-200">
                                     <h3 className="font-bold text-gray-800 mb-3">Transfer Summary</h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -401,7 +401,7 @@ const TransferRevolvingFunds = () => {
                                         </div>
                                         <div className="col-span-2">
                                             <p className="text-xs text-gray-600 font-semibold mb-1">Total Transfer Amount</p>
-                                            <p className="text-4xl font-black bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                                            <p className="text-4xl font-black text-[#1a4d2e]">
                                                 ₱{totalTransferAmount.toLocaleString()}
                                             </p>
                                         </div>
@@ -415,7 +415,7 @@ const TransferRevolvingFunds = () => {
                             <button
                                 type="submit"
                                 disabled={!canTransfer || selectedBranches.length === 0 || loading}
-                                className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 rounded-xl font-bold text-lg hover:from-teal-700 hover:to-cyan-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white py-4 rounded-xl font-bold text-lg hover:from-[#153d24] hover:to-[#246038] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? (
                                     <>
@@ -434,20 +434,20 @@ const TransferRevolvingFunds = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="bg-gradient-to-br from-teal-500 to-cyan-600 p-6 rounded-2xl shadow-lg text-white">
-                        <p className="text-teal-100 text-xs font-semibold uppercase mb-2">Total Branches</p>
+                    <div className="bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] p-6 rounded-2xl shadow-lg text-white">
+                        <p className="text-green-100 text-xs font-semibold uppercase mb-2">Total Branches</p>
                         <p className="text-4xl font-black mb-1">{branches.length}</p>
                         <p className="text-sm opacity-90">Active church branches</p>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                    <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 p-6">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Quick Info</h3>
                         <div className="space-y-4">
-                            <div className="p-4 bg-teal-50 rounded-xl">
-                                <p className="text-xs font-bold text-teal-700 mb-2">Transfer Method</p>
+                            <div className="p-4 bg-green-50 rounded-xl">
+                                <p className="text-xs font-bold text-[#1a4d2e] mb-2">Transfer Method</p>
                                 <p className="text-sm text-gray-700">Distribute equal amounts to multiple branches simultaneously</p>
                             </div>
-                            <div className="p-4 bg-cyan-50 rounded-xl">
+                            <div className="p-4 bg-emerald-50 rounded-xl">
                                 <p className="text-xs font-bold text-cyan-700 mb-2">Processing Time</p>
                                 <p className="text-sm text-gray-700">Instant transfer to all selected branches</p>
                             </div>

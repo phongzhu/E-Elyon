@@ -175,28 +175,28 @@ const ApprovalQueue = () => {
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-gray-50 to-teal-50 p-10 overflow-y-auto">
-                    <div className="mb-8">
-                        <h1 className="text-4xl font-bold text-gray-900 mb-2">Approval Queue</h1>
-                        <p className="text-gray-500">View transfer requests for your branch</p>
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
+                    <div className="bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] rounded-2xl p-6 text-white shadow-xl mb-8">
+                        <h1 className="text-4xl font-bold mb-2">Approval Queue</h1>
+                        <p className="text-green-100">View transfer requests for your branch</p>
                     </div>
 
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-gradient-to-br from-teal-500 to-cyan-600 p-6 rounded-2xl shadow-lg text-white">
+                        <div className="bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] p-6 rounded-2xl shadow-lg text-white">
                             <div className="flex items-center gap-3 mb-2">
                                 <Clock size={24} />
-                                <p className="text-teal-100 text-xs font-semibold uppercase">Pending Approvals</p>
+                                <p className="text-green-100 text-xs font-semibold uppercase">Pending Approvals</p>
                             </div>
                             <p className="text-4xl font-black">{pendingCount}</p>
                         </div>
 
-                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+                        <div className="bg-white p-6 rounded-2xl shadow-lg border-2 border-green-200">
                             <div className="flex items-center gap-3 mb-2">
-                                <DollarSign className="text-teal-600" size={24} />
+                                <DollarSign className="text-[#1a4d2e]" size={24} />
                                 <p className="text-xs font-semibold text-gray-500 uppercase">Pending Amount</p>
                             </div>
-                            <p className="text-3xl font-black text-teal-700">₱{totalPendingAmount.toLocaleString()}</p>
+                            <p className="text-3xl font-black text-[#1a4d2e]">₱{totalPendingAmount.toLocaleString()}</p>
                         </div>
 
                         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
@@ -216,7 +216,7 @@ const ApprovalQueue = () => {
                                 onClick={() => setFilter('Pending')}
                                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                     filter === 'Pending' 
-                                    ? 'bg-yellow-600 text-white' 
+                                    ? 'bg-[#7a2828] text-white' 
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >
@@ -226,7 +226,7 @@ const ApprovalQueue = () => {
                                 onClick={() => setFilter('Completed')}
                                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                     filter === 'Completed' 
-                                    ? 'bg-green-600 text-white' 
+                                    ? 'bg-[#1a4d2e] text-white' 
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >
@@ -236,7 +236,7 @@ const ApprovalQueue = () => {
                                 onClick={() => setFilter('Rejected')}
                                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                                     filter === 'Rejected' 
-                                    ? 'bg-red-600 text-white' 
+                                    ? 'bg-[#7a2828] text-white' 
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >

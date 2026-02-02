@@ -217,30 +217,32 @@ const FundManagement = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       <Sidebar />
       
       <div className="flex flex-col flex-1">
         <Header />
         
-        <div className="flex-1 bg-gradient-to-br from-gray-50 to-blue-50 p-10 overflow-y-auto">
-          <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Accounts & Balances</h1>
-          <p className="text-gray-500">Manage all church financial accounts</p>
-        </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
-        >
-          <Plus size={20} />
-          Add New Account
-        </button>
-      </div>
+        <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
+          <div className="mb-8 bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] rounded-2xl p-6 text-white shadow-xl">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-4xl font-bold mb-2">Accounts & Balances</h1>
+                <p className="text-green-100">Manage all church financial accounts</p>
+              </div>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 bg-white text-[#1a4d2e] px-6 py-3 rounded-xl font-bold hover:bg-green-50 transition-all shadow-lg"
+              >
+                <Plus size={20} />
+                Add New Account
+              </button>
+            </div>
+          </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-lg text-white">
+        <div className="bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] p-6 rounded-2xl shadow-lg text-white">
           <p className="text-blue-100 text-xs font-semibold uppercase mb-2">Total Balance</p>
           <p className="text-4xl font-black mb-2">₱{totalBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
           <p className="text-sm">Across all accounts</p>
@@ -271,7 +273,7 @@ const FundManagement = () => {
               onClick={() => setAccountTypeFilter('all')}
               className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                 accountTypeFilter === 'all'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[#1a4d2e] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -281,7 +283,7 @@ const FundManagement = () => {
               onClick={() => setAccountTypeFilter('bank')}
               className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                 accountTypeFilter === 'bank'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[#1a4d2e] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -291,7 +293,7 @@ const FundManagement = () => {
               onClick={() => setAccountTypeFilter('e-wallet')}
               className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                 accountTypeFilter === 'e-wallet'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[#1a4d2e] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -301,7 +303,7 @@ const FundManagement = () => {
               onClick={() => setAccountTypeFilter('cash')}
               className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
                 accountTypeFilter === 'cash'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[#1a4d2e] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -312,7 +314,7 @@ const FundManagement = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAccounts.map(account => (
-            <div key={account.account_id} className="bg-gradient-to-br from-gray-50 to-white rounded-xl shadow border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+            <div key={account.account_id} className="bg-gradient-to-br from-gray-50 to-white rounded-xl shadow border-2 border-green-200 p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="bg-white p-3 rounded-xl shadow-sm">
                   {getAccountIcon(account.account_type)}
@@ -463,7 +465,7 @@ const FundManagement = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white rounded-xl font-bold hover:from-[#153d24] hover:to-[#246038] transition-all disabled:opacity-50"
                 >
                   {loading ? 'Adding...' : 'Add Account'}
                 </button>

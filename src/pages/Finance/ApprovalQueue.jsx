@@ -230,13 +230,13 @@ const ApprovalQueue = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-gray-50 to-red-50 p-10 overflow-y-auto">
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-4xl font-bold text-gray-900 mb-2">Expense Approval Queue</h1>
@@ -287,7 +287,7 @@ const ApprovalQueue = () => {
                         onClick={() => setFilter('pending')}
                         className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                             filter === 'pending' 
-                            ? 'bg-yellow-600 text-white' 
+                            ? 'bg-[#7a2828] text-white' 
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >
@@ -297,7 +297,7 @@ const ApprovalQueue = () => {
                         onClick={() => setFilter('completed')}
                         className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                             filter === 'completed' 
-                            ? 'bg-green-600 text-white' 
+                            ? 'bg-[#1a4d2e] text-white' 
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >
@@ -307,7 +307,7 @@ const ApprovalQueue = () => {
                         onClick={() => setFilter('rejected')}
                         className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                             filter === 'rejected' 
-                            ? 'bg-red-600 text-white' 
+                            ? 'bg-[#7a2828] text-white' 
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >

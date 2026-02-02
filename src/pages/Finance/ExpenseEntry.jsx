@@ -471,26 +471,26 @@ const ExpenseEntry = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-gray-50 to-orange-50 p-10 overflow-y-auto">
-                    <div className="mb-8">
-                        <h1 className="text-4xl font-bold text-gray-900 mb-2">Expense Entry</h1>
-                        <p className="text-gray-500">Record church expenses and update accounts</p>
+                <div className="flex-1 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 p-10 overflow-y-auto">
+                    <div className="mb-8 bg-gradient-to-r from-[#7a2828] to-[#a83c3c] rounded-2xl p-6 text-white shadow-xl">
+                        <h1 className="text-4xl font-bold mb-2">Expense Entry</h1>
+                        <p className="text-red-100">Record church expenses and update accounts</p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2">
-                            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+                            <div className="bg-white rounded-2xl shadow-xl border-2 border-red-200 p-8">
                                 <div className="flex items-center gap-3 mb-6">
-                                    <div className="bg-orange-100 p-3 rounded-xl">
-                                        <Plus className="text-orange-700" size={24} />
+                                    <div className="bg-gradient-to-br from-[#7a2828] to-[#a83c3c] p-3 rounded-xl">
+                                        <Plus className="text-white" size={24} />
                                     </div>
-                                    <h2 className="text-2xl font-bold text-gray-800">New Expense</h2>
+                                    <h2 className="text-2xl font-bold text-[#7a2828]">New Expense</h2>
                                 </div>
 
                                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -761,7 +761,7 @@ const ExpenseEntry = () => {
                                     <button
                                         type="submit"
                                         disabled={loading || uploading}
-                                        className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-4 rounded-xl font-bold text-lg hover:from-orange-700 hover:to-red-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full bg-gradient-to-r from-[#7a2828] to-[#a83c3c] text-white py-4 rounded-xl font-bold text-lg hover:from-[#5f1f1f] hover:to-[#8a2e2e] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <CheckCircle2 size={20} />
                                         {uploading ? 'Uploading Receipt...' : loading ? 'Recording...' : 'Record Expense'}
@@ -825,7 +825,7 @@ const ExpenseEntry = () => {
                                 <p className="text-gray-600 mb-6">{modalMessage}</p>
                                 <button
                                     onClick={() => setShowModal(false)}
-                                    className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-xl font-bold hover:from-orange-700 hover:to-red-700 transition-all"
+                                    className="w-full bg-gradient-to-r from-[#7a2828] to-[#a83c3c] text-white py-3 rounded-xl font-bold hover:from-[#5f1f1f] hover:to-[#8a2e2e] transition-all"
                                 >
                                     OK
                                 </button>

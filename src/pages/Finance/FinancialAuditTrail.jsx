@@ -179,19 +179,19 @@ const FinancialAuditTrail = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-gray-50 to-slate-50 p-10 overflow-y-auto">
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
             <div className="flex justify-between items-start mb-8">
                 <div>
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">Financial Audit Trail</h1>
-                    <p className="text-gray-500">Complete transaction history and financial activity log</p>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] bg-clip-text text-transparent mb-2">Financial Audit Trail</h1>
+                    <p className="text-gray-600 font-medium">Complete transaction history and financial activity log</p>
                 </div>
-                <button className="flex items-center gap-2 bg-slate-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg">
+                <button className="flex items-center gap-2 bg-[#1a4d2e] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#153d24] transition-all shadow-lg">
                     <Download size={18} />
                     Export CSV
                 </button>
@@ -262,7 +262,7 @@ const FinancialAuditTrail = () => {
                             <button
                                 onClick={() => setFilter('income')}
                                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-                                    filter === 'income' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    filter === 'income' ? 'bg-[#1a4d2e] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >
                                 Income
@@ -270,7 +270,7 @@ const FinancialAuditTrail = () => {
                             <button
                                 onClick={() => setFilter('expense')}
                                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-                                    filter === 'expense' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    filter === 'expense' ? 'bg-[#7a2828] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >
                                 Expense

@@ -127,12 +127,12 @@ export default function Login() {
         throw new Error("This account is not allowed to login in this portal.");
       }
 
-      // 5) Pastor requirement: must have assigned branch (users_details.branch_id)
-      let pastorBranchId = null;
-      if (role === "PASTOR") {
+      // 5) Pastor & Finance requirement: must have assigned branch (users_details.branch_id)
+      let branchId = null;
+      if (role === "PASTOR" || role === "FINANCE") {
         if (!userRecord.user_details_id) {
           await supabase.auth.signOut();
-          throw new Error("Pastor profile is missing. Please contact the administrator.");
+          throw new Error(`${role === "PASTOR" ? "Pastor" : "Finance"} profile is missing. Please contact the administrator.`);
         }
 
         const { data: details, error: detErr } = await supabase
@@ -143,9 +143,9 @@ export default function Login() {
 
         if (detErr) throw detErr;
 
-        pastorBranchId = details?.branch_id || null;
+        branchId = details?.branch_id || null;
 
-        if (!pastorBranchId) {
+        if (!branchId && role === "PASTOR") {
           await supabase.auth.signOut();
           throw new Error("You are not assigned to a branch yet. Please contact the Bishop.");
         }
@@ -156,7 +156,7 @@ export default function Login() {
       localStorage.setItem("userRole", role.toLowerCase());
       localStorage.setItem("userId", String(userRecord.user_id));
       if (userRecord.user_details_id) localStorage.setItem("userDetailsId", String(userRecord.user_details_id));
-      if (role === "PASTOR") localStorage.setItem("branchId", String(pastorBranchId));
+      if (branchId) localStorage.setItem("branchId", String(branchId));
 
       // Optional: record audit if your RPC exists
       try {

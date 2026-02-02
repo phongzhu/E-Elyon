@@ -21,6 +21,7 @@ import {
   Layers,
   ListChecks,
   Receipt,
+  Sparkles,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -29,10 +30,19 @@ import { useBranding } from "../context/BrandingContext";
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [userBranchId, setUserBranchId] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
   const { branding } = useBranding();
+
+  // Fetch user's branch_id on mount
+  useEffect(() => {
+    const branchId = localStorage.getItem("branchId");
+    if (branchId) {
+      setUserBranchId(branchId);
+    }
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -229,102 +239,7 @@ export default function Sidebar() {
         },
       ],
 
-      finance: [
-        {
-          path: "/finance/dashboard",
-          name: "Finance Dashboard",
-          icon: <Home size={sizes.icon} />,
-        },
-        {
-          name: "Donations",
-          icon: <DollarSign size={sizes.icon} />,
-          dropdown: [
-            {
-              path: "/finance/cash-entry",
-              name: "Cash Entry",
-              icon: <DollarSign size={sizes.icon} />,
-            },
-            {
-              path: "/finance/offering-records",
-              name: "Offering Records",
-              icon: <FileText size={sizes.icon} />,
-            },
-          ],
-        },
-        {
-          name: "Expense Management",
-          icon: <ClipboardList size={sizes.icon} />,
-          dropdown: [
-            {
-              path: "/finance/expense-entry",
-              name: "Expense Entry",
-              icon: <FileText size={sizes.icon} />,
-            },
-            {
-              path: "/finance/utility-tracker",
-              name: "Utility Tracker",
-              icon: <Layers size={sizes.icon} />,
-            },
-            {
-              path: "/finance/approval-queue",
-              name: "Approval Queue",
-              icon: <ListChecks size={sizes.icon} />,
-            },
-          ],
-        },
-        {
-          name: "Fund Management",
-          icon: <Wallet size={sizes.icon} />,
-          dropdown: [
-            {
-              path: "/finance/accounts-balances",
-              name: "Accounts & Balances",
-              icon: <Wallet size={sizes.icon} />,
-            },
-            {
-              path: "/finance/stipends",
-              name: "Stipends",
-              icon: <DollarSign size={sizes.icon} />,
-            },
-            {
-              path: "/finance/transfer-funds",
-              name: "Transfer Funds",
-              icon: <Database size={sizes.icon} />,
-            },
-            {
-              path: "/finance/branch-fund-requests",
-              name: "Branch Fund Requests",
-              icon: <ClipboardList size={sizes.icon} />,
-            },
-          ],
-        },
-        {
-          name: "Financial Reports",
-          icon: <PieChart size={sizes.icon} />,
-          dropdown: [
-            {
-              path: "/finance/statement-reports",
-              name: "Statement Reports",
-              icon: <FileText size={sizes.icon} />,
-            },
-            {
-              path: "/finance/donation-reports",
-              name: "Donation Reports",
-              icon: <PieChart size={sizes.icon} />,
-            },
-            {
-              path: "/finance/transfer-reports",
-              name: "Transfer Reports",
-              icon: <Database size={sizes.icon} />,
-            },
-            {
-              path: "/finance/audit-trail",
-              name: "Audit Trail",
-              icon: <FileText size={sizes.icon} />,
-            },
-          ],
-        },
-      ],
+      finance: [],  // Will be populated dynamically
 
       staff: [
         {
@@ -345,6 +260,128 @@ export default function Sidebar() {
   );
 
   const role = (localStorage.getItem("userRole") || "admin").toLowerCase();
+  
+  // Build finance menu dynamically based on branch_id
+  const financeMenu = useMemo(() => {
+    const baseMenu = [
+      {
+        path: "/finance/dashboard",
+        name: "Finance Dashboard",
+        icon: <Home size={sizes.icon} />,
+      },
+      {
+        path: "/finance/budget-proposal",
+        name: "AI Budget Proposal",
+        icon: <Sparkles size={sizes.icon} />,
+      },
+      {
+        name: "Donations",
+        icon: <DollarSign size={sizes.icon} />,
+        dropdown: [
+          {
+            path: "/finance/cash-entry",
+            name: "Cash Entry",
+            icon: <DollarSign size={sizes.icon} />,
+          },
+          {
+            path: "/finance/offering-records",
+            name: "Offering Records",
+            icon: <FileText size={sizes.icon} />,
+          },
+        ],
+      },
+    ];
+
+    // Expense Management dropdown - always visible for all branches
+    const expenseDropdown = [
+      {
+        path: "/finance/expense-entry",
+        name: "Expense Entry",
+        icon: <FileText size={sizes.icon} />,
+      },
+      {
+        path: "/finance/utility-tracker",
+        name: "Utility Tracker",
+        icon: <Layers size={sizes.icon} />,
+      },
+      {
+        path: "/finance/approval-queue",
+        name: "Approval Queue",
+        icon: <ListChecks size={sizes.icon} />,
+      },
+    ];
+
+    baseMenu.push({
+      name: "Expense Management",
+      icon: <ClipboardList size={sizes.icon} />,
+      dropdown: expenseDropdown,
+    });
+
+    // Fund Management dropdown - filter items based on branch_id
+    const fundDropdown = [
+      {
+        path: "/finance/accounts-balances",
+        name: "Accounts & Balances",
+        icon: <Wallet size={sizes.icon} />,
+      },
+      {
+        path: "/finance/stipends",
+        name: "Stipends",
+        icon: <DollarSign size={sizes.icon} />,
+      },
+    ];
+
+    // Only show Transfer Funds and Branch Fund Requests if branch_id === "2"
+    if (userBranchId === "2") {
+      fundDropdown.push(
+        {
+          path: "/finance/transfer-funds",
+          name: "Transfer Funds",
+          icon: <Database size={sizes.icon} />,
+        },
+        {
+          path: "/finance/branch-fund-requests",
+          name: "Branch Fund Requests",
+          icon: <ClipboardList size={sizes.icon} />,
+        }
+      );
+    }
+
+    baseMenu.push({
+      name: "Fund Management",
+      icon: <Wallet size={sizes.icon} />,
+      dropdown: fundDropdown,
+    });
+
+    // Financial Reports dropdown
+    baseMenu.push({
+      name: "Financial Reports",
+      icon: <PieChart size={sizes.icon} />,
+      dropdown: [
+        {
+          path: "/finance/statement-reports",
+          name: "Statement Reports",
+          icon: <FileText size={sizes.icon} />,
+        },
+        {
+          path: "/finance/donation-reports",
+          name: "Donation Reports",
+          icon: <PieChart size={sizes.icon} />,
+        },
+        {
+          path: "/finance/transfer-reports",
+          name: "Transfer Reports",
+          icon: <Database size={sizes.icon} />,
+        },
+      ],
+    });
+
+    return baseMenu;
+  }, [sizes.icon, userBranchId]);
+
+  // Update menuConfig to use dynamic finance menu
+  menuConfig.finance = financeMenu;
+  
   const menuItems = menuConfig[role] || menuConfig.admin;
 
   const roleName = useMemo(() => {
@@ -481,7 +518,7 @@ export default function Sidebar() {
                     {!collapsed && (
                       <ChevronRight
                         size={16}
-                        className={`shrink-0 transition-transform ${
+                        className={`shrink-0 transition-transform duration-200 ${
                           isOpen ? "rotate-90" : ""
                         }`}
                       />
@@ -489,7 +526,7 @@ export default function Sidebar() {
                   </button>
 
                   {isOpen && !collapsed && (
-                    <div className="space-y-1">
+                    <div className="ml-3 pl-3 space-y-1 border-l-2 border-white/20">
                       {item.dropdown.map((d) => {
                         const childActive = location.pathname.startsWith(
                           d.path

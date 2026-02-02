@@ -327,26 +327,26 @@ const CashEntry = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
             <Sidebar />
             
             <div className="flex flex-col flex-1">
                 <Header />
                 
-                <div className="flex-1 bg-gradient-to-br from-gray-50 to-green-50 p-10 overflow-y-auto">
-            <div className="mb-8">
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">Cash / Walk-in Entry</h1>
-                <p className="text-gray-500">Record donations received in cash or during church services</p>
+                <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
+            <div className="mb-8 bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] rounded-2xl p-6 text-white shadow-xl">
+                <h1 className="text-4xl font-bold mb-2">Cash / Walk-in Entry</h1>
+                <p className="text-green-100">Record donations received in cash or during church services</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+                    <div className="bg-white rounded-2xl shadow-xl border-2 border-green-200 p-8">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-green-100 p-3 rounded-xl">
-                                <Plus className="text-green-700" size={24} />
+                            <div className="bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] p-3 rounded-xl">
+                                <Plus className="text-white" size={24} />
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-800">New Cash Entry</h2>
+                            <h2 className="text-2xl font-bold text-[#1a4d2e]">New Cash Entry</h2>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -453,7 +453,7 @@ const CashEntry = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-4 rounded-xl font-bold text-lg hover:from-emerald-700 hover:to-green-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white py-4 rounded-xl font-bold text-lg hover:from-[#153d24] hover:to-[#236438] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <CheckCircle2 size={20} />
                                 {loading ? 'Recording...' : 'Record Entry'}
@@ -463,8 +463,8 @@ const CashEntry = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-6 rounded-2xl shadow-lg text-white">
-                        <p className="text-emerald-100 text-xs font-semibold uppercase mb-2">Today's Collection</p>
+                    <div className="bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] p-6 rounded-2xl shadow-lg text-white">
+                        <p className="text-green-100 text-xs font-semibold uppercase mb-2">Today's Collection</p>
                         <p className="text-4xl font-black mb-1">₱{totalToday.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
                         <div className="flex items-center gap-1 text-sm">
                             <TrendingUp size={16} />
@@ -517,7 +517,7 @@ const CashEntry = () => {
                             <p className="text-gray-600 mb-6">{modalMessage}</p>
                             <button
                                 onClick={() => setShowModal(false)}
-                                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 rounded-xl font-bold hover:from-emerald-700 hover:to-green-700 transition-all"
+                                className="w-full bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white py-3 rounded-xl font-bold hover:from-[#153d24] hover:to-[#236438] transition-all"
                             >
                                 OK
                             </button>

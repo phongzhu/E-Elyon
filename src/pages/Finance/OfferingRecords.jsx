@@ -150,23 +150,23 @@ const OfferingRecords = () => {
   const avgPerEvent = totalEvents > 0 ? totalOfferings / totalEvents : 0;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       <Sidebar />
       
       <div className="flex flex-col flex-1">
         <Header />
         
         <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-2">
+      <div className="mb-8 bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] rounded-2xl p-6 text-white shadow-xl">
+        <h1 className="text-4xl font-bold mb-2">
           Offering Records
         </h1>
-        <p className="text-gray-600 font-medium">Track donations per event/service</p>
+        <p className="text-green-100">Track donations per event/service</p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 rounded-2xl shadow-lg text-white">
+        <div className="bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] p-6 rounded-2xl shadow-lg text-white">
           <div className="flex items-center gap-3 mb-2">
             <DollarSign size={24} />
             <p className="text-green-100 text-xs font-semibold uppercase">Total Offerings</p>
@@ -192,7 +192,7 @@ const OfferingRecords = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-8">
+      <div className="bg-white rounded-2xl shadow-xl border-2 border-green-200 p-6 mb-8">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-4 flex-wrap">
             <Calendar size={20} className="text-gray-500" />

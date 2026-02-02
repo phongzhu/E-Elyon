@@ -289,37 +289,37 @@ const Stipends = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       <Sidebar />
       
       <div className="flex flex-col flex-1">
         <Header />
         
-        <div className="flex-1 bg-gradient-to-br from-gray-50 to-indigo-50 p-10 overflow-y-auto">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Stipend Management</h1>
-            <p className="text-gray-500">Manage and process monthly stipends for pastors and workers</p>
+        <div className="flex-1 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-10 overflow-y-auto">
+          <div className="bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] rounded-2xl p-6 text-white shadow-xl mb-8">
+            <h1 className="text-4xl font-bold mb-2">Stipend Management</h1>
+            <p className="text-green-100">Manage and process monthly stipends for pastors and workers</p>
           </div>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-lg text-white">
+            <div className="bg-gradient-to-br from-[#1a4d2e] to-[#2d7a4a] p-6 rounded-2xl shadow-lg text-white">
               <div className="flex items-center gap-3 mb-2">
                 <Clock size={24} />
-                <p className="text-indigo-100 text-xs font-semibold uppercase">Pending Payments</p>
+                <p className="text-green-100 text-xs font-semibold uppercase">Pending Payments</p>
               </div>
               <p className="text-4xl font-black">{pendingCount}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-2xl shadow-lg border-2 border-green-200">
               <div className="flex items-center gap-3 mb-2">
-                <DollarSign className="text-indigo-600" size={24} />
+                <DollarSign className="text-[#1a4d2e]" size={24} />
                 <p className="text-xs font-semibold text-gray-500 uppercase">Total Pending Amount</p>
               </div>
-              <p className="text-3xl font-black text-indigo-700">₱{totalPending.toLocaleString()}</p>
+              <p className="text-3xl font-black text-[#1a4d2e]">₱{totalPending.toLocaleString()}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-2xl shadow-lg border-2 border-green-200">
               <div className="flex items-center gap-3 mb-2">
                 <Users className="text-green-600" size={24} />
                 <p className="text-xs font-semibold text-gray-500 uppercase">Recipients</p>
@@ -329,7 +329,7 @@ const Stipends = () => {
           </div>
 
           {/* Filter */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-8">
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 p-6 mb-8">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <Filter size={20} className="text-gray-500" />
@@ -338,7 +338,7 @@ const Stipends = () => {
                   onClick={() => setFilter('pending')}
                   className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                     filter === 'pending' 
-                    ? 'bg-yellow-600 text-white' 
+                    ? 'bg-[#7a2828] text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -348,7 +348,7 @@ const Stipends = () => {
                   onClick={() => setFilter('completed')}
                   className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                     filter === 'completed' 
-                    ? 'bg-green-600 text-white' 
+                    ? 'bg-[#1a4d2e] text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -358,7 +358,7 @@ const Stipends = () => {
                   onClick={() => setFilter('rejected')}
                   className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
                     filter === 'rejected' 
-                    ? 'bg-red-600 text-white' 
+                    ? 'bg-[#7a2828] text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -384,7 +384,7 @@ const Stipends = () => {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors text-sm"
+                    className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-[#1a4d2e] focus:ring-2 focus:ring-[#1a4d2e] focus:outline-none transition-colors text-sm"
                     placeholder="Start Date"
                   />
                   <span className="text-gray-500">to</span>
@@ -392,7 +392,7 @@ const Stipends = () => {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors text-sm"
+                    className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-[#1a4d2e] focus:ring-2 focus:ring-[#1a4d2e] focus:outline-none transition-colors text-sm"
                     placeholder="End Date"
                   />
                   {(startDate || endDate) && (
@@ -412,18 +412,18 @@ const Stipends = () => {
           </div>
 
           {/* Stipends Table */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-green-200 overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800">Stipend Records</h2>
               <div className="flex gap-3">
                 <button 
                   onClick={exportToPDF}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg flex items-center gap-2"
+                  className="bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white px-6 py-3 rounded-xl font-bold hover:from-[#153d24] hover:to-[#246038] transition-all shadow-lg flex items-center gap-2"
                 >
                   <Download size={20} />
                   Export to PDF
                 </button>
-                <button className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg">
+                <button className="bg-gradient-to-r from-[#1a4d2e] to-[#2d7a4a] text-white px-6 py-3 rounded-xl font-bold hover:from-[#153d24] hover:to-[#246038] transition-all shadow-lg">
                   Release All Pending
                 </button>
               </div>
@@ -444,7 +444,7 @@ const Stipends = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredStipends.map(stipend => (
-                <tr key={stipend.id} className="hover:bg-indigo-50 transition-colors">
+                <tr key={stipend.id} className="hover:bg-green-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       {stipend.profilePath ? (
